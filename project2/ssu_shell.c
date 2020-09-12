@@ -1,9 +1,10 @@
-#include <stdio.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/wait.h>
+#include <signal.h>
 
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
@@ -58,6 +59,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+
 	while(1) {			
 		/* BEGIN: TAKING INPUT */
 		bzero(line, sizeof(line));
@@ -71,7 +73,7 @@ int main(int argc, char* argv[]) {
 			scanf("%[^\n]", line);
 			getchar();
 		}
-		printf("Command entered: %s (remove this debug output later)\n", line); //////////////////////////////////////////////////////////////
+		//printf("Command entered: %s (remove this debug output later)\n", line); 
 		/* END: TAKING INPUT */
 
 		line[strlen(line)] = '\n'; //terminate with new line -> tokenize()의 정상적 수행을 위해 명령어 마지막 문자를 white space로 해야함
@@ -79,9 +81,9 @@ int main(int argc, char* argv[]) {
    
        //do whatever you want with the commands, here we just print them
 
-		for(i=0;tokens[i]!=NULL;i++){
-			printf("found token %s (remove this debug output later)\n", tokens[i]);////////////////////////////////////////////////////////
-		}
+//		for(i=0;tokens[i]!=NULL;i++){
+//			printf("found token %s (remove this debug output later)\n", tokens[i]);
+//		}
 
 
 		// 여기서 토큰 이용해 명령어 실행
@@ -102,60 +104,51 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 	pid_t pid;
 	int status;
 	int pipe_fd[2];
-	int tmp_stdout_fd;
 	int pipe_index;
 
-	if (!tokens[command_start_index]) {
-		printf("pipe command error\n");
+	if (!tokens[command_start_index]) { // 첫번째 토큰이 NULL인 경우
+		fprintf(stderr, "invalid command.\n");
 		return;
 	}
 
-	if ((pipe_index = get_next_pipe_index(tokens, command_start_index)) > 0) { // 파이프 명령어 있다면
-		// tokens[pipe_index] = NULL
+	if ((pipe_index = get_next_pipe_index(tokens, command_start_index)) > 0) { // 실행하지 않은 토큰 중 파이프 명령어 있다면
 		tokens[pipe_index] = NULL;
-
-		// pipe 생성
-		if (pipe(pipe_fd) == -1) {
-			printf("에러 메시지 출력\n");
-		}
-
-		// stdout fd dup
-		tmp_stdout_fd = dup(1);
-		if (dup2(pipe_fd[1], 1) != 1) { // 표준 출력을 파이프로 리디렉션, 이 이후부터 exec 할 때 까지 출력 하면 절대 안됨!!!
-			fprintf(stderr, "dup2 error 2\n");
+		if (pipe(pipe_fd) == -1) { // pipe 생성
+			fprintf(stderr, "pipe() error.\n");
 		}
 	}
 
-	if ((pid = fork()) > 0) { // 부모 프로세스 -> vfork
-		waitpid(pid, &status, 0);
+	if ((pid = fork()) > 0) { // 부모 프로세스
+		waitpid(pid, &status, WUNTRACED);
+		if (pipe_index > 0) { // 파이프 명령어 있었다면
+			close(pipe_fd[1]); // 안쓰는 파이프 파일 close
+			// execute_command 재귀호출하며 stdin_fd로 파이프 넘겨줌, command_start_index는 pipe_index + 1
+			execute_command(tokens, pipe_index + 1, pipe_fd[0]);
+			// pipe close
+			close(pipe_fd[0]);
+		}
 	} else if (pid == 0) { // 자식 프로세스
+		if (pipe_index > 0) {
+			close(pipe_fd[0]); // 안쓰는 파이프 파일 close
+			if (dup2(pipe_fd[1], 1) != 1) { // 표준 출력을 파이프로 리디렉션, 이 이후부터 exec 까지 표준 출력에 출력 하면 절대 안됨!!!
+				fprintf(stderr, "dup2() error 2\n");
+			}
+		}
+
 		if (stdin_fd > 0) { // 파이프 뒤에 있는 명령어의 경우
 			dup2(stdin_fd, 0); // 표준 입력을 파이프로 리디렉션
 		}
 
 		if (execvp(tokens[command_start_index], tokens + command_start_index) < 0) {
-			printf("에러 메시지 출력\n");
+			fprintf(stderr, "command execution failed.\n");
 			_exit(1);
 		}
 
-	} else { // 에러
-		printf("에러 메시지 출력\n");////////////////////////////////////////////////////////////////////////
+	} else { // fork 에러
+		fprintf(stderr, "fork() error.\n");
 	}
 
-	if (pipe_index > 0) { // 파이프 명령어 있었다면
-		// stdout fd 복원
-		if (dup2(tmp_stdout_fd, 1) != 1) {
-			fprintf(stderr, "dup2 error 3\n");
-		}
-		close(tmp_stdout_fd); // 임시 표준출력의 fd는 더이상 쓸 일 없으니 close
-		
-		// execute_command 재귀호출하며 stdin_fd로 파이프 넘겨줌, command_start_index는 pipe_index + 1
-		execute_command(tokens, pipe_index + 1, pipe_fd[0]);
-
-		// pipe close
-		close(pipe_fd[0]);
-		close(pipe_fd[1]);
-	}
+	return;
 }
 
 // 토큰중에서 command_start_index 뒤의 첫번째 pipe의 인덱스 리턴, 없을경우 -1 리턴
