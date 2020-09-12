@@ -3,10 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wait.h>
 
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
 #define MAX_NUM_TOKENS 64
+
+void execute_command(char **tokens, int command_start_index, int stdin_fd);
+int get_next_pipe_index(char **tokens, int command_start_index);
 
 /* Splits the string by space and returns the array of tokens
 *
@@ -77,9 +81,21 @@ int main(int argc, char* argv[]) {
 
 		for(i=0;tokens[i]!=NULL;i++){
 			printf("found token %s (remove this debug output later)\n", tokens[i]);////////////////////////////////////////////////////////
-			// 여기서 토큰 이용해 명령어 실행
 		}
        
+
+
+
+
+
+		// 여기서 토큰 이용해 명령어 실행
+		execute_command(tokens, 0, 0);
+
+
+
+
+
+
 		// Freeing the allocated memory	
 		for(i=0;tokens[i]!=NULL;i++){
 			free(tokens[i]);
@@ -88,4 +104,83 @@ int main(int argc, char* argv[]) {
 
 	}
 	return 0;
+}
+
+void execute_command(char **tokens, int command_start_index, int stdin_fd){
+	pid_t pid;
+	int status;
+	int pipe_fd[2];
+	int tmp_stdout_fd;
+	int pipe_index;
+	printf("execute_command()\n");
+
+	if (!tokens[command_start_index]) {
+		printf("recursive end\n");
+		return;
+	}
+
+	if ((pipe_index = get_next_pipe_index(tokens, command_start_index)) > 0) { // 파이프 명령어 있다면
+			printf("pipe_index = %d\n", pipe_index);
+			// tokens[pipe_index] = NULL
+			tokens[pipe_index] = NULL;
+
+			// pipe 생성
+			if (pipe(pipe_fd) == -1) {
+				printf("에러 메시지 출력\n");
+			}
+
+			// stdout fd dup
+			tmp_stdout_fd = dup(1);
+			dup2(pipe_fd[1], 1);
+	}
+
+	if ((pid = fork()) > 0) { // 부모 프로세스 -> vfork
+		printf("waitpid...\n");
+		waitpid(pid, &status, 0);
+		printf("waitpid end\n");
+	} else if (pid == 0) { // 자식 프로세스
+		int pipe_index;
+		int tmp_stdin_fd;
+		printf("execvp\n");
+
+		if (stdin_fd > 0) {
+			//dup
+			dup2(stdin_fd, 0);
+		}
+
+		if (execvp(tokens[command_start_index], tokens + command_start_index) < 0) {
+			printf("에러 메시지 출력\n");
+		}
+
+	} else { // 에러
+		printf("에러 메시지 출력\n");////////////////////////////////////////////////////////////////////////
+	}
+
+	if (pipe_index > 0) { // 파이프 명령어 있었다면
+			// stdout fd 복원
+			dup2(tmp_stdout_fd, 1);
+			printf("stdout test\n");
+			
+			// execute_command 재귀호출하며 stdin_fd로 파이프 넘겨줌, command_start_index는 pipe_index + 1
+			execute_command(tokens, pipe_index + 1, pipe_fd[0]);
+
+			// pipe close
+			close(pipe_fd[0]);
+			close(pipe_fd[1]);
+	}
+}
+
+int get_next_pipe_index(char **tokens, int command_start_index){
+	int pipe_index = -1;
+	int token_index = command_start_index;
+
+	while (tokens[token_index]) {
+		if (!strcmp(tokens[token_index], "|")) {
+			pipe_index = token_index;
+			break;
+		}
+		++token_index;
+	}
+
+	return pipe_index;
 }
