@@ -119,7 +119,7 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 	}
 
 	if ((pid = fork()) > 0) { // 부모 프로세스
-		waitpid(pid, &status, WUNTRACED);
+		waitpid(pid, &status, WUNTRACED); /////////////////////////////////////////////////////////////////////////////// TODO: check the exit status of child process here.
 		if (pipe_index > 0) { // 파이프 명령어 있었다면
 			close(pipe_fd[1]); // 안쓰는 파이프 파일 close
 			// execute_command 재귀호출하며 stdin_fd로 파이프 넘겨줌, command_start_index는 pipe_index + 1
