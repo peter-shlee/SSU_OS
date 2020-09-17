@@ -124,7 +124,6 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 		if (!check_exit_status(status)){ // 자식 프로세스가 정상적으로 종료되지 않았다면
 			return;
 		}
-
 		if (pipe_index > 0) { // 파이프 명령어 있었다면
 			close(pipe_fd[1]); // 안쓰는 파이프 파일 close
 			// execute_command 재귀호출하며 stdin_fd로 파이프 넘겨줌, command_start_index는 pipe_index + 1
