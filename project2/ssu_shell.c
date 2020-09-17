@@ -12,6 +12,7 @@
 
 void execute_command(char **tokens, int command_start_index, int stdin_fd);
 int get_next_pipe_index(char **tokens, int command_start_index);
+int check_exit_status(int status);
 
 /* Splits the string by space and returns the array of tokens
 *
@@ -120,6 +121,10 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 
 	if ((pid = fork()) > 0) { // 부모 프로세스
 		waitpid(pid, &status, WUNTRACED);
+		if (!check_exit_status(status)){ // 자식 프로세스가 정상적으로 종료되지 않았다면
+			return;
+		}
+
 		if (pipe_index > 0) { // 파이프 명령어 있었다면
 			close(pipe_fd[1]); // 안쓰는 파이프 파일 close
 			// execute_command 재귀호출하며 stdin_fd로 파이프 넘겨줌, command_start_index는 pipe_index + 1
@@ -149,6 +154,26 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 	}
 
 	return;
+}
+
+int check_exit_status(int status) {
+	if (WIFEXITED(status)) {
+		return 1;
+	} else if (WIFSIGNALED(status)) {
+		fprintf(stderr, "abnormal termination, signal number = %d%s\n", 
+				WTERMSIG(status), 
+#ifdef WCOREDUMP
+				WCOREDUMP(status) ? " (core file generated)" : "");
+#else
+				"");
+#endif
+		return 0;
+	} else if (WIFSTOPPED(status)) { 
+		fprintf(stderr, "child stopped, signal number = %d\n", WSTOPSIG(status));
+		return 0;
+	}
+
+	return 0;
 }
 
 // 토큰중에서 command_start_index 뒤의 첫번째 pipe의 인덱스 리턴, 없을경우 -1 리턴
