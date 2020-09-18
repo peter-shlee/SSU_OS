@@ -154,8 +154,8 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 		}
 
 		if (execvp(tokens[command_start_index], tokens + command_start_index) < 0) {
-			fprintf(stderr, "command execution failed.\n");
-			_exit(1);
+			fprintf(stderr, "SSUShell : Incorrect command\n");
+			exit(1);
 		}
 
 	} else { // fork 에러
