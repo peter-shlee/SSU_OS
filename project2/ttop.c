@@ -3,12 +3,14 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <utmpx.h>
 
 #define BUFFER_SIZE 128
 
 void print_system_infos();
 void print_current_time();
 void print_running_time();
+void print_user_count();
 void print_load_average();
 void print_mem_infos();
 
@@ -29,8 +31,8 @@ void print_system_infos() {
 	printf(" up ");
 	print_running_time();
 	printf(", ");
-
-	printf("user, ");
+	print_user_count();
+	printf(" user, ");
 	printf("load average: ");
 	print_load_average();
 
@@ -90,7 +92,20 @@ void print_running_time() {
 }
 
 void print_user_count() {
+	struct utmpx *utmpxp;
+	int logged_in_user_count = 0;
 
+	setutxent();
+	while ((utmpxp = getutxent()) != NULL) {
+		if (utmpxp->ut_type == USER_PROCESS) {
+			++logged_in_user_count;
+		}
+	}
+	endutxent();
+
+	printf("%d", logged_in_user_count);
+
+	return;
 }
 
 void print_load_average() {

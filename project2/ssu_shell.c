@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <signal.h>
 
+#define BUFFER_SIZE 1024
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
 #define MAX_NUM_TOKENS 64
@@ -50,6 +51,15 @@ int main(int argc, char* argv[]) {
 	char  line[MAX_INPUT_SIZE]; // 명령어 입력받을 배열 
 	char  **tokens; // 명령어에서 분리한 토큰들이 저장된 배열을 담을 포인터 
 	int i;
+	char current_dir_name[BUFFER_SIZE];
+	char *path_env_value;
+	char new_path_env_value[BUFFER_SIZE];
+
+	// for run ttop and pps commands, add current working directory to PATH env
+	getcwd(current_dir_name, BUFFER_SIZE);
+	path_env_value = getenv("PATH");
+	sprintf(new_path_env_value, "%s:%s", path_env_value, current_dir_name);
+	setenv("PATH", new_path_env_value, 1);
 
 	FILE* fp;
 	if(argc == 2) { // 배치식인 경우 파일 open
