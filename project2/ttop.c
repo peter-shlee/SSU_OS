@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ncurses.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
@@ -17,13 +18,22 @@
 const unsigned long NANOS = 1000000000;
 int page_size_in_KiB;
 unsigned int print_start_index;
+int running;
+int sleeping;
+int stopped;
+int zombie;
 
-void print_system_infos();
-void print_current_time();
-void print_running_time();
-void print_user_count();
-void print_load_average();
-void print_mem_infos();
+void refresh_page(int row, int col);
+
+void print_system_infos(int col);
+char *print_current_time();
+char *print_running_time();
+char *print_user_count();
+char *print_load_average();
+void print_cpu_infos(int col);
+void print_mem_infos(int col);
+void print_task_infos(int col);
+void check_task_status();
 
 void init_task_list();
 void init_simple_task_list();
@@ -34,8 +44,9 @@ void update_time();
 void update_cpu_time();
 void update_simple_task_status();
 void update_task_status(int max_count);
-void print_process_infos();
-void print_process_info(int index);
+void print_process_infos(int row, int col);
+void print_process_info(int index, int col);
+char *convert_time_format(unsigned long time);
 
 unsigned long prev_cpu_idle;
 unsigned long prev_cpu_nonidle;
@@ -45,162 +56,6 @@ unsigned long cur_cpu_nonidle;
 unsigned long cur_cpu_time;
 unsigned long prev_time;
 unsigned long cur_time;
-
-int main(void) {
-	page_size_in_KiB = getpagesize() / 1024;
-	init_task_list();
-	init_simple_task_list();
-
-	print_system_infos();
-	printf("\n");
-	print_process_infos();
-
-	return 0;
-}
-
-void print_system_infos() {
-	printf("top - ");
-	print_current_time();
-	printf(" up ");
-	print_running_time();
-	printf(", ");
-	print_user_count();
-	printf(" user, ");
-	printf("load average: ");
-	print_load_average();
-
-
-	printf("\n");
-
-	printf("\n");
-
-	print_mem_infos();
-	printf("\n");
-
-	return;
-}
-
-void print_current_time() {
-	time_t raw_time;
-	struct tm *time_info;
-	char *time_text;
-	char current_time_text[8];
-
-	time(&raw_time);
-	time_info = localtime(&raw_time);
-	time_text = asctime(time_info);
-	strncpy(current_time_text, time_text + 11, sizeof(current_time_text) / sizeof(current_time_text[0]));
-	printf("%s", current_time_text);
-
-	return;
-}
-
-void print_running_time() {
-	// ~ min
-	// ~:~~
-	FILE *fp;
-	const char* fname = "/proc/uptime";
-	const char* mode = "r";
-	float fuptime;
-	int hour = 0;
-	int minute = 0;
-
-	if ((fp = fopen(fname, mode)) == NULL) {
-		fprintf(stderr, "fopen error for %s\n", fname);
-		exit(1);
-	}
-	fscanf(fp, "%f", &fuptime);
-	fclose(fp);
-
-	hour = fuptime / (60 * 60);
-	minute = (fuptime - (hour *60 * 60)) / 60;
-
-	if (hour == 0) {
-		printf("%d min", minute);
-	} else {
-		printf("%d:%02d", hour, minute);
-	}
-
-	return;
-}
-
-void print_user_count() {
-	struct utmpx *utmpxp;
-	int logged_in_user_count = 0;
-
-	setutxent();
-	while ((utmpxp = getutxent()) != NULL) {
-		if (utmpxp->ut_type == USER_PROCESS) {
-			++logged_in_user_count;
-		}
-	}
-	endutxent();
-
-	printf("%d", logged_in_user_count);
-
-	return;
-}
-
-void print_load_average() {
-	FILE *fp;
-	const char *fname = "/proc/loadavg";
-	const char* mode = "r";
-	float _1_min_avg, _5_min_avg, _15_min_avg;
-
-	if ((fp = fopen(fname, mode)) == NULL) {
-		fprintf(stderr, "fopen error for %s\n", fname);
-		exit(1);
-	}
-
-	fscanf(fp, "%f%f%f", &_1_min_avg, &_5_min_avg, &_15_min_avg);
-	fclose(fp);
-
-	printf("%.2f, %.2f, %.2f", _1_min_avg, _5_min_avg, _15_min_avg);
-
-	return;
-}
-
-void print_mem_infos() {
-	FILE *fp;
-	const char *fname = "/proc/meminfo";
-	const char *mode = "r";
-	int mem_total, mem_free, mem_used, mem_cached, mem_buffers, mem_SReclaimable, mem_available, mem_cache;
-	int swap_total, swap_free, swap_used;
-	char tmp[BUFFER_SIZE];
-	int i;
-	
-	// used -> total - free - buffers - cache
-	// buffers -> Buffers in /proc/meminfo
-	// cache -> Cached and SReclaimable in /proc/meminfo
-
-	if ((fp = fopen(fname, mode)) == NULL) {
-		fprintf(stderr, "fopen error for %s\n", fname);
-		exit(1);
-	}
-
-	fscanf(fp, "%s%d%s", tmp, &mem_total, tmp);
-	fscanf(fp, "%s%d%s", tmp, &mem_free, tmp);
-	fscanf(fp, "%s%d%s", tmp, &mem_available, tmp);
-	fscanf(fp, "%s%d%s", tmp, &mem_buffers, tmp);
-	fscanf(fp, "%s%d%s", tmp, &mem_cached, tmp);
-	for (i = 0; i < 9; ++i)
-		fscanf(fp, "%s%s%s", tmp, tmp, tmp);
-	fscanf(fp, "%s%d%s", tmp, &swap_total, tmp);
-	fscanf(fp, "%s%d%s", tmp, &swap_free, tmp);
-	for (i = 0; i < 7; ++i)
-		fscanf(fp, "%s%s%s", tmp, tmp, tmp);
-	fscanf(fp, "%s%d%s", tmp, &mem_SReclaimable, tmp);
-
-	fclose(fp);
-
-	mem_cache = mem_cached + mem_SReclaimable;
-	mem_used = mem_total - mem_free - mem_buffers - mem_cache;
-	swap_used = swap_total - swap_free;
-	printf("KiB Mem : %d total, %d free, %d used, %d buff/cache\n", mem_total, mem_free, mem_used, mem_buffers + mem_cache);
-	printf("KiB Swap: %d total, %d free, %d used, %d avail Mem\n", swap_total, swap_free, swap_used, mem_available);
-
-}
-///////////////////////////////////////////////////////
 
 typedef struct _task_info {
 	pid_t pid;
@@ -231,6 +86,7 @@ typedef struct _simple_task_info {
 	unsigned long prev_cpu_time;
 	unsigned long cur_cpu_time;
 	int is_updated;
+	char s[2];
 } Simple_task_info;
 
 struct _simple_task_list {
@@ -241,6 +97,284 @@ struct _simple_task_list {
 	int is_sorted_by_cpu_and_pid;
 } Simple_task_list;
 
+struct cpu_info{
+	unsigned long us;
+	unsigned long sy;
+	unsigned long ni;
+	unsigned long id;
+	unsigned long wa;
+	unsigned long hi;
+	unsigned long si;
+	unsigned long st;
+	unsigned long total;
+} cur_cpu_info, prev_cpu_info;
+
+int main(void) {
+	int row, col;
+	initscr();
+	page_size_in_KiB = getpagesize() / 1024;
+	update_time();
+	update_cpu_time();
+	init_task_list();
+	init_simple_task_list();
+	update_simple_task_status();
+
+	while(1) {
+		getmaxyx(stdscr, row, col);
+		refresh_page(row, col);
+		sleep(3);
+	}
+
+	return 0;
+}
+
+void refresh_page(int row, int col) {
+	update_time();
+	update_cpu_time();
+	update_simple_task_status();
+	update_task_status(row - 7);
+	check_task_status();
+
+	clear();
+	print_system_infos(col);
+	print_process_infos(row, col);
+	refresh();
+
+	return;
+}
+
+void print_system_infos(int col) {
+	char info_string[1024];
+	char *current_time_string, *running_time_string, *user_count_string, *load_average_string;
+	current_time_string = print_current_time();
+	running_time_string = print_running_time();
+	user_count_string = print_user_count();
+	load_average_string = print_load_average();
+	sprintf(info_string, "top - %s up %s, %s user, load average: %s", current_time_string, running_time_string, user_count_string, load_average_string);
+	//printf("%s", info_string);
+	addnstr(info_string, col - 1);
+	free(current_time_string );
+	free(running_time_string );
+	free(user_count_string );
+	free(load_average_string );
+
+	print_task_infos(col);
+
+	print_cpu_infos(col);
+
+	print_mem_infos(col);
+	printw("\n");
+
+	return;
+}
+
+char *print_current_time() {
+	time_t raw_time;
+	struct tm *time_info;
+	char *time_text;
+	char *current_time_text;
+	current_time_text = (char *)calloc(16 ,sizeof(char));
+
+	time(&raw_time);
+	time_info = localtime(&raw_time);
+	time_text = asctime(time_info);
+	strncpy(current_time_text, time_text + 11, sizeof(current_time_text) / sizeof(current_time_text[0]));
+	//printf("%s", current_time_text);
+
+	return current_time_text;
+}
+
+char *print_running_time() {
+	// ~ min
+	// ~:~~
+	FILE *fp;
+	const char* fname = "/proc/uptime";
+	const char* mode = "r";
+	float fuptime;
+	int hour = 0;
+	int minute = 0;
+	char *running_time_text;
+	running_time_text = (char *)malloc(16 * sizeof(char));
+
+	if ((fp = fopen(fname, mode)) == NULL) {
+		fprintf(stderr, "fopen error for %s\n", fname);
+		exit(1);
+	}
+	fscanf(fp, "%f", &fuptime);
+	fclose(fp);
+
+	hour = fuptime / (60 * 60);
+	minute = (fuptime - (hour *60 * 60)) / 60;
+
+	if (hour == 0) {
+		sprintf(running_time_text, "%d min", minute);
+	} else {
+		sprintf(running_time_text, "%d:%02d", hour, minute);
+	}
+
+	return running_time_text;
+}
+
+char *print_user_count() {
+	struct utmpx *utmpxp;
+	int logged_in_user_count = 0;
+	char *user_count_string;
+	user_count_string = (char *)malloc(8 * sizeof(char));
+
+	setutxent();
+	while ((utmpxp = getutxent()) != NULL) {
+		if (utmpxp->ut_type == USER_PROCESS) {
+			++logged_in_user_count;
+		}
+	}
+	endutxent();
+
+	sprintf(user_count_string, "%d", logged_in_user_count);
+
+	return user_count_string;
+}
+
+char *print_load_average() {
+	FILE *fp;
+	const char *fname = "/proc/loadavg";
+	const char* mode = "r";
+	float _1_min_avg, _5_min_avg, _15_min_avg;
+	char *load_average_string;
+	load_average_string = (char *)malloc(32 * sizeof(char));
+
+	if ((fp = fopen(fname, mode)) == NULL) {
+		fprintf(stderr, "fopen error for %s\n", fname);
+		exit(1);
+	}
+
+	fscanf(fp, "%f%f%f", &_1_min_avg, &_5_min_avg, &_15_min_avg);
+	fclose(fp);
+
+	sprintf(load_average_string, "%.2f, %.2f, %.2f", _1_min_avg, _5_min_avg, _15_min_avg);
+
+	return load_average_string;
+}
+
+void print_task_infos(int col) {
+	char task_info_string[1024];
+
+	sprintf(task_info_string, "\nTasks: %3d total, %3d running, %3d sleeping, %3d stopped, %3d zombie", Simple_task_list.len, running, sleeping, stopped, zombie);
+	//printf("%s", task_info_string);
+	addnstr(task_info_string, col);
+
+	return;
+}
+
+void print_cpu_infos(int col) {
+	FILE *fp;
+	const char *fname = "/proc/stat";
+	const char *mode = "r";
+	char tmp[BUFFER_SIZE];
+	unsigned long us, sy, ni, id, wa, hi, si, st, total;
+	float fus, fsy, fni, fid, fwa, fhi, fsi, fst;
+	char cpu_info_string[1024];
+	float interval = sysconf(_SC_CLK_TCK) * (cur_time - prev_time);
+
+	if ((fp = fopen(fname, mode)) == NULL) {
+		fprintf(stderr, "fopen error for %s\n", fname);
+		exit(1);
+	}
+	fscanf(fp, "%s%lu%lu%lu%lu%lu%lu%lu%lu", tmp, &us, &ni, &sy, &id, &wa, &hi, &si, &st);
+	fclose(fp);
+	total = us + sy + ni + id + wa + hi + si + st;
+
+	prev_cpu_info = cur_cpu_info;
+	cur_cpu_info.us = us;
+	cur_cpu_info.sy = sy;
+	cur_cpu_info.ni = ni;
+	cur_cpu_info.id = id;
+	cur_cpu_info.wa = wa;
+	cur_cpu_info.hi = hi;
+	cur_cpu_info.si = si;
+	cur_cpu_info.st = st;
+	cur_cpu_info.total = total;
+
+	fus = ((us - prev_cpu_info.us) / (float)(total - prev_cpu_info.total)) * 100.0;
+	fsy = ((sy - prev_cpu_info.sy) / (float)(total - prev_cpu_info.total)) * 100.0;
+	fni = ((ni - prev_cpu_info.ni) / (float)(total - prev_cpu_info.total)) * 100.0;
+	fid = ((id - prev_cpu_info.id) / (float)(total - prev_cpu_info.total)) * 100.0;
+	fwa = ((wa - prev_cpu_info.wa) / (float)(total - prev_cpu_info.total)) * 100.0;
+	fhi = ((hi - prev_cpu_info.hi) / (float)(total - prev_cpu_info.total)) * 100.0;
+	fsi = ((si - prev_cpu_info.si) / (float)(total - prev_cpu_info.total)) * 100.0;
+	fst = ((st - prev_cpu_info.st) / (float)(total - prev_cpu_info.total)) * 100.0;
+	sprintf(cpu_info_string, "\n%%Cpu(s): %4.1f us, %4.1f sy,  %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st", fus, fsy, fni, fid, fwa, fhi, fsi, fst);
+	//printf("%s", cpu_info_string);
+	addnstr(cpu_info_string, col);
+
+	return;
+}
+
+void check_task_status() {
+	int i;
+	running = 0;
+	sleeping = 0;
+	stopped = 0;
+	zombie = 0;
+
+	for (i = 0; i < Simple_task_list.len; ++i) {
+		if (!strcmp(Simple_task_list.list[i]->s, "R")) {
+			running += 1;
+		} else if (!strcmp(Simple_task_list.list[i]->s, "S")) {
+			sleeping += 1;
+		} else if (!strcmp(Simple_task_list.list[i]->s, "T") || !strcmp(Simple_task_list.list[i]->s, "t")) {
+			stopped += 1;
+		} else if (!strcmp(Simple_task_list.list[i]->s, "Z")) {
+			zombie += 1;
+		}
+	}
+
+	return;
+}
+
+void print_mem_infos(int col) {
+	FILE *fp;
+	const char *fname = "/proc/meminfo";
+	const char *mode = "r";
+	int mem_total, mem_free, mem_used, mem_cached, mem_buffers, mem_SReclaimable, mem_available, mem_cache;
+	int swap_total, swap_free, swap_used;
+	char tmp[BUFFER_SIZE];
+	char info_string[1024];
+	int i;
+	
+	// used -> total - free - buffers - cache
+	// buffers -> Buffers in /proc/meminfo
+	// cache -> Cached and SReclaimable in /proc/meminfo
+
+	if ((fp = fopen(fname, mode)) == NULL) {
+		fprintf(stderr, "fopen error for %s\n", fname);
+		exit(1);
+	}
+
+	fscanf(fp, "%s%d%s", tmp, &mem_total, tmp);
+	fscanf(fp, "%s%d%s", tmp, &mem_free, tmp);
+	fscanf(fp, "%s%d%s", tmp, &mem_available, tmp);
+	fscanf(fp, "%s%d%s", tmp, &mem_buffers, tmp);
+	fscanf(fp, "%s%d%s", tmp, &mem_cached, tmp);
+	for (i = 0; i < 9; ++i)
+		fscanf(fp, "%s%s%s", tmp, tmp, tmp);
+	fscanf(fp, "%s%d%s", tmp, &swap_total, tmp);
+	fscanf(fp, "%s%d%s", tmp, &swap_free, tmp);
+	for (i = 0; i < 7; ++i)
+		fscanf(fp, "%s%s%s", tmp, tmp, tmp);
+	fscanf(fp, "%s%d%s", tmp, &mem_SReclaimable, tmp);
+
+	fclose(fp);
+
+	mem_cache = mem_cached + mem_SReclaimable;
+	mem_used = mem_total - mem_free - mem_buffers - mem_cache;
+	swap_used = swap_total - swap_free;
+	sprintf(info_string, "\nKiB Mem : %8d total, %8d free, %8d used, %8d buff/cache", mem_total, mem_free, mem_used, mem_buffers + mem_cache);
+	addnstr(info_string, col);
+	sprintf(info_string, "\nKiB Swap: %8d total, %8d free, %8d used, %8d avail Mem", swap_total, swap_free, swap_used, mem_available);
+	addnstr(info_string, col);
+
+}
+///////////////////////////////////////////////////////
 // task info
 void free_task_list() {
 	if (Task_list.list != NULL) {
@@ -380,7 +514,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	fscanf(fp, "%s%f", tmp, &mem_total);
 	fclose(fp);
 
-	new_info->mem = (new_info->res - new_info->shr) / mem_total * 100.0;
+	new_info->mem = (new_info->res) / mem_total * 100.0;
 
 	//PID - directory name - ok
 	//S - stat - ok
@@ -627,7 +761,7 @@ void update_time() {
 
 	prev_time = cur_time;
 	cur_time = (NANOS * ts.tv_sec + ts.tv_nsec) / (NANOS / MILLIS);
-	printf("prev_time = %lu, current_time = %lu\n", prev_time, cur_time);
+	//printf("prev_time = %lu, current_time = %lu\n", prev_time, cur_time);
 }
 
 void update_cpu_time() {
@@ -741,7 +875,10 @@ void update_simple_task_status() {
 				exit(1);
 			}
 
-			for (i = 0; i < 13; ++i)
+			for (i = 0; i < 2; ++i)
+				fscanf(fp, "%s", tmp);
+			fscanf(fp, "%s", task_info->s);
+			for (i = 0; i < 10; ++i)
 				fscanf(fp, "%s", tmp);
 			fscanf(fp, "%lu%lu", &utime, &stime);
 			fclose(fp);
@@ -756,7 +893,7 @@ void update_simple_task_status() {
 
 			//printf("6666\n");
 			if (is_new_info) {
-				printf("add new simple info\n");
+				//printf("add new simple info\n");
 				append_to_simple_task_list(task_info);
 			}
 			//printf("7777\n");
@@ -782,32 +919,25 @@ void update_simple_task_status() {
 	return;
 }
 
-void print_process_infos() {
+void print_process_infos(int row, int col) {
 	int i;
 	char task_info_string[1024];
 
-	while(1) {
-		update_time();
-		update_cpu_time();
-		update_simple_task_status();
-		update_task_status(20);
-
-		sprintf(task_info_string, "%6s %s\t%3s %3s %7s %7s %7s %s %4s %4s %9s %s", "PID", "USER", "PR", "NI", "VIRT", "RES", "SHR", "S", "%CPU", "%MEM", "TIME+", "COMMAND");
-		printf("%s\n", task_info_string);
-		for (i = 0; i < Task_list.len; ++i) {
-			print_process_info(i);
-		}
-
-		sleep(3);
+	sprintf(task_info_string, "\n%6s %-8s%3s %3s %7s %7s %7s %s %4s %4s %9s %s", "PID", "USER", "PR", "NI", "VIRT", "RES", "SHR", "S", "%CPU", "%MEM", "TIME+", "COMMAND");
+	//printf("%s\n", task_info_string);
+	addnstr(task_info_string, col);
+	for (i = 0; i < Task_list.len; ++i) {
+		print_process_info(i, col);
 	}
 
 	return;
 }
 
-void print_process_info(int index) {
+void print_process_info(int index, int col) {
 	Task_info *t;
 	char task_info_string[1024];
 	char pr_string[10];
+	char *time_string;
 
 	t = Task_list.list[index];
 	if (t->pr == -100) {
@@ -815,9 +945,23 @@ void print_process_info(int index) {
 	} else {
 		sprintf(pr_string, "%ld", t->pr);
 	}
-	sprintf(task_info_string, "%6d %s\t%3s %3ld %7lu %7lu %7lu %s %4.1f %4.1f %9s %s", t->pid, t->user_name, pr_string, t->ni, t->virt, t->res, t->shr, t->s, t->cpu, t->mem, "test", t->command);
+	time_string = convert_time_format(t->time);
+	sprintf(task_info_string, "\n%6d %-8s%3s %3ld %7lu %7lu %7lu %s %4.1f %4.1f %9s %s", t->pid, t->user_name, pr_string, t->ni, t->virt, t->res, t->shr, t->s, t->cpu, t->mem, time_string, t->command);
 
-	printf("%s\n", task_info_string);
+	//printf("%s\n", task_info_string);
+	addnstr(task_info_string, col);
+	free(time_string);
 
 	return;
+}
+
+char *convert_time_format(unsigned long time){
+	char *time_string;
+	unsigned long tmp_seconds = time / sysconf(_SC_CLK_TCK);
+	unsigned long minutes = tmp_seconds / 60;
+	float seconds = (time - minutes * 60.0 * sysconf(_SC_CLK_TCK)) / sysconf(_SC_CLK_TCK);
+	time_string = (char *)malloc(16 * sizeof(char));
+
+	sprintf(time_string, "%lu:%05.2f", minutes, seconds);
+	return time_string;
 }
