@@ -23,6 +23,7 @@ int sleeping;
 int stopped;
 int zombie;
 
+void init_screen();
 void refresh_page(int row, int col);
 
 void print_system_infos(int col);
@@ -40,6 +41,7 @@ void init_simple_task_list();
 
 void increase_print_start_index();
 void decrease_print_start_index();
+unsigned long get_current_time();
 void update_time();
 void update_cpu_time();
 void update_simple_task_status();
@@ -111,7 +113,8 @@ struct cpu_info{
 
 int main(void) {
 	int row, col;
-	initscr();
+	int exit_flag = 0;
+
 	page_size_in_KiB = getpagesize() / 1024;
 	update_time();
 	update_cpu_time();
@@ -119,13 +122,51 @@ int main(void) {
 	init_simple_task_list();
 	update_simple_task_status();
 
+	init_screen();
+
 	while(1) {
 		getmaxyx(stdscr, row, col);
 		refresh_page(row, col);
-		sleep(3);
+		while (get_current_time() - cur_time < 3 * MILLIS) {
+			int refresh_page_flag = 0;
+			int key_input;
+			if ((key_input = getch()) != ERR) {
+				switch (key_input) {
+					case 'q':
+						exit_flag = 1;
+						break;
+					case KEY_UP:
+						decrease_print_start_index();
+						refresh_page_flag = 1;
+						break;
+					case KEY_DOWN:
+						increase_print_start_index();
+						refresh_page_flag = 1;
+						break;
+					default:
+						break;
+
+				}
+				if (refresh_page_flag || exit_flag) break;
+			}
+		}
+		if (exit_flag) break;
 	}
 
+	endwin();
+
 	return 0;
+}
+
+void init_screen() {
+	initscr();
+	cbreak();
+	noecho();
+	keypad(stdscr, TRUE);
+	nodelay(stdscr, TRUE);
+	curs_set(0);
+
+	return;
 }
 
 void refresh_page(int row, int col) {
@@ -752,6 +793,14 @@ void decrease_print_start_index() {
 }
 
 void update_time() {
+	prev_time = cur_time;
+	cur_time = get_current_time();
+	//printf("prev_time = %lu, current_time = %lu\n", prev_time, cur_time);
+
+	return;
+}
+
+unsigned long get_current_time() {
 	struct timespec ts;
 
 	if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
@@ -759,9 +808,7 @@ void update_time() {
 		exit(1);
 	}
 
-	prev_time = cur_time;
-	cur_time = (NANOS * ts.tv_sec + ts.tv_nsec) / (NANOS / MILLIS);
-	//printf("prev_time = %lu, current_time = %lu\n", prev_time, cur_time);
+	return (NANOS * ts.tv_sec + ts.tv_nsec) / (NANOS / MILLIS);
 }
 
 void update_cpu_time() {
@@ -808,7 +855,7 @@ void update_task_status(int max_count) {
 	int target_index;
 
 	init_task_list();
-	for(i = 0, target_index = print_start_index; i < max_count && print_start_index < Simple_task_list.len; ++i) {
+	for(i = 0, target_index = print_start_index; i < max_count && print_start_index + i < Simple_task_list.len; ++i) {
 		pid_t target_pid;
 
 		target_index = print_start_index + i;
@@ -923,12 +970,15 @@ void print_process_infos(int row, int col) {
 	int i;
 	char task_info_string[1024];
 
-	sprintf(task_info_string, "\n%6s %-8s%3s %3s %7s %7s %7s %s %4s %4s %9s %s", "PID", "USER", "PR", "NI", "VIRT", "RES", "SHR", "S", "%CPU", "%MEM", "TIME+", "COMMAND");
+	sprintf(task_info_string, "\n%6s %-8s%3s %3s %7s %7s %7s %s %5s %4s %9s %s", "PID", "USER", "PR", "NI", "VIRT", "RES", "SHR", "S", "%CPU", "%MEM", "TIME+", "COMMAND");
 	//printf("%s\n", task_info_string);
 	addnstr(task_info_string, col);
 	for (i = 0; i < Task_list.len; ++i) {
 		print_process_info(i, col);
 	}
+//	for (i = 0; i < row - 7 - Task_list.len; ++i) {
+//		printw("\n");
+//	}
 
 	return;
 }
@@ -946,7 +996,7 @@ void print_process_info(int index, int col) {
 		sprintf(pr_string, "%ld", t->pr);
 	}
 	time_string = convert_time_format(t->time);
-	sprintf(task_info_string, "\n%6d %-8s%3s %3ld %7lu %7lu %7lu %s %4.1f %4.1f %9s %s", t->pid, t->user_name, pr_string, t->ni, t->virt, t->res, t->shr, t->s, t->cpu, t->mem, time_string, t->command);
+	sprintf(task_info_string, "\n%6d %-8s%3s %3ld %7lu %7lu %7lu %s %5.1f %4.1f %9s %s", t->pid, t->user_name, pr_string, t->ni, t->virt, t->res, t->shr, t->s, t->cpu, t->mem, time_string, t->command);
 
 	//printf("%s\n", task_info_string);
 	addnstr(task_info_string, col);
