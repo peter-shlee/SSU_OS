@@ -115,14 +115,14 @@ int main(void) {
 	int row, col;
 	int exit_flag = 0;
 
+	init_screen();
+
 	page_size_in_KiB = getpagesize() / 1024;
 	update_time();
 	update_cpu_time();
 	init_task_list();
 	init_simple_task_list();
 	update_simple_task_status();
-
-	init_screen();
 
 	while(1) {
 		getmaxyx(stdscr, row, col);
@@ -153,6 +153,8 @@ int main(void) {
 		if (exit_flag) break;
 	}
 
+	free_task_list();
+	free_simple_task_list();
 	endwin();
 
 	return 0;
@@ -239,6 +241,7 @@ char *print_running_time() {
 
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 	fscanf(fp, "%f", &fuptime);
@@ -285,6 +288,7 @@ char *print_load_average() {
 
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 
@@ -318,6 +322,7 @@ void print_cpu_infos(int col) {
 
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 	fscanf(fp, "%s%lu%lu%lu%lu%lu%lu%lu%lu", tmp, &us, &ni, &sy, &id, &wa, &hi, &si, &st);
@@ -388,6 +393,7 @@ void print_mem_infos(int col) {
 
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 
@@ -440,6 +446,7 @@ void init_task_list() {
 	Task_list.list = (Task_info **)malloc(INIT_LIST_SIZE * sizeof(Task_info));
 	if (Task_list.list == NULL) {
 		fprintf(stderr, "malloc error in init_task_list\n");
+		endwin();
 		exit(1);
 	}
 	Task_list.len = 0;
@@ -456,6 +463,7 @@ void append_to_task_list(Task_info* new_info) {
 		Task_list.list = (Task_info **)realloc(Task_list.list, Task_list.size * sizeof(Task_info *));
 		if (Task_list.list == NULL) {
 			fprintf(stderr, "realloc error in append_to_task_list\n");
+			endwin();
 			exit(1);
 		}
 	}
@@ -481,6 +489,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	Task_info *new_info = (Task_info *)malloc(sizeof(Task_info));
 	if (new_info == NULL) {
 		fprintf(stderr, "malloc error in make_new_task_info\n");
+		endwin();
 		exit(1);
 	}
 	new_info->pid = pid;
@@ -490,6 +499,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	sprintf(fname, "/proc/%d/stat", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 
@@ -510,6 +520,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	sprintf(fname, "/proc/%d/loginuid", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 	fscanf(fp, "%d", &uid);
@@ -526,6 +537,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	sprintf(fname, "/proc/%d/status", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 	fscanf(fp, "%s%s", tmp, new_info->command);
@@ -537,6 +549,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	sprintf(fname, "/proc/%d/statm", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 	fscanf(fp, "%lu%lu%lu", &(new_info->virt), &(new_info->res), &(new_info->shr));
@@ -550,6 +563,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	sprintf(fname, "/proc/meminfo");
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 	fscanf(fp, "%s%f", tmp, &mem_total);
@@ -666,6 +680,7 @@ void init_simple_task_list() {
 	Simple_task_list.list = (Simple_task_info **)malloc(INIT_LIST_SIZE * sizeof(Simple_task_info *));
 	if (Simple_task_list.list == NULL) {
 		fprintf(stderr, "malloc error in init_simple_task_list\n");
+		endwin();
 		exit(1);
 	}
 	Simple_task_list.len = 0;
@@ -682,6 +697,7 @@ void append_to_simple_task_list(Simple_task_info *new_info) {
 		Simple_task_list.list = (Simple_task_info **)realloc(Simple_task_list.list, Simple_task_list.size * sizeof(Simple_task_info *));
 		if (Simple_task_list.list == NULL) {
 			fprintf(stderr, "realloc error in append_to_simple_task_list\n");
+			endwin();
 			exit(1);
 		}
 	}
@@ -696,6 +712,7 @@ Simple_task_info *make_new_simple_task_info(pid_t pid) {
 	Simple_task_info *new_info = (Simple_task_info *)malloc(sizeof(Simple_task_info));
 	if (new_info == NULL) {
 		fprintf(stderr, "malloc error in make_new_simple_task_info\n");
+		endwin();
 		exit(1);
 	}
 	new_info->pid = pid;
@@ -805,6 +822,7 @@ unsigned long get_current_time() {
 
 	if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
 		fprintf(stderr, "clock_gettime error\n");
+		endwin();
 		exit(1);
 	}
 
@@ -820,6 +838,7 @@ void update_cpu_time() {
 
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
 		exit(1);
 	}
 
@@ -885,6 +904,7 @@ void update_simple_task_status() {
 
 	if ((dirp = opendir("/proc")) == NULL) {
 		fprintf(stderr, "opendir error for /proc\n");
+		endwin();
 		exit(1);
 	}
 
@@ -919,6 +939,7 @@ void update_simple_task_status() {
 			sprintf(proc_stat_filename, "/proc/%d/stat", pid);
 			if ((fp = fopen(proc_stat_filename, "r")) == NULL) {
 				fprintf(stderr, "fopen error for %s\n", proc_stat_filename);
+				endwin();
 				exit(1);
 			}
 
