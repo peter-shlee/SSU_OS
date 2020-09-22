@@ -18,76 +18,78 @@
 const unsigned long NANOS = 1000000000;
 int page_size_in_KiB;
 unsigned int print_start_index;
-int running;
-int sleeping;
-int stopped;
-int zombie;
+int running; // running 상태인 프로세스의 개수를 저장할 변수
+int sleeping; // sleeping 상태인 프로세스의 개수를 저장할 변수
+int stopped; // stopped 상태인 프로세스의 개수를 저장할 변수
+int zombie; // zombie 상태인 프로세스의 개수를 저장할 변수
 
-void init_screen();
-void refresh_page(int row, int col);
+void init_screen(); // 콘솔 초기화 함수
+void refresh_page(int row, int col); // ttop 내용 새로고침
 
-void print_system_infos(int col);
-char *print_current_time();
-char *print_running_time();
-char *print_user_count();
-char *print_load_average();
-void print_cpu_infos(int col);
-void print_mem_infos(int col);
-void print_task_infos(int col);
-void check_task_status();
+void print_system_infos(int col); // ttop 명령어 상단의 system 정보 출력
+char *print_current_time(); // 현재시간 문자열 만들어 리턴하는 함수
+char *print_running_time(); // 실행 시간 문자열 만들어 리턴하는 함수
+char *print_user_count(); // 유저 수 문자열로 만들어 리턴하는 함수
+char *print_load_average(); // load average 문자열로 만들어 리턴하는 함수
+void print_cpu_infos(int col); // cpu정보 문자열로 만들어 리턴하는 함수
+void print_mem_infos(int col); // mem정보 문자열로 만들어 리턴하는 함수
+void print_task_infos(int col); // tasks 정보들 문자열로 만들어 리턴하는 함수
+void check_task_status(); // task들의 상태 체그해 각 상태별 task개수 저장하는 함수
 
-void init_task_list();
-void init_simple_task_list();
+void free_simple_task_list();
+void free_task_list();
+void init_task_list(); // Task_list 초기화하는 함수
+void init_simple_task_list(); // Simple_task_list 초기화하는 함수
 
-void increase_print_start_index();
-void decrease_print_start_index();
-unsigned long get_current_time();
-void update_time();
-void update_cpu_time();
-void update_simple_task_status();
-void update_task_status(int max_count);
-void print_process_infos(int row, int col);
-void print_process_info(int index, int col);
-char *convert_time_format(unsigned long time);
+void increase_print_start_index(); // 출력 시작할 task의 인덱스를 증가시키는 함수
+void decrease_print_start_index(); // 출력 시작할 task의 인덱스를 감소시키는 함수
+unsigned long get_current_time(); // 밀리초 단위의 현재시간 리턴하는 함수
+void update_time(); // cur_time, prev_time 갱신하는 함수
+void update_cpu_time();// cpu time 갱신하는 함수
+void update_simple_task_status(); // simple_task_list 갱신하는 함수
+void update_task_status(int max_count); // task_list 갱신하는 함수
+void print_process_infos(int row, int col); // 프로세스들의 정보를 출력하는 함수
+void print_process_info(int index, int col); // 특정 프로세스의 정보 출력하는 함수
+char *convert_time_format(unsigned long time); // clock tick 단위의 시간을 문자열 형태로 변환하여 리턴
 
-unsigned long prev_cpu_idle;
-unsigned long prev_cpu_nonidle;
-unsigned long prev_cpu_time;
-unsigned long cur_cpu_idle;
-unsigned long cur_cpu_nonidle;
-unsigned long cur_cpu_time;
-unsigned long prev_time;
-unsigned long cur_time;
+unsigned long prev_cpu_idle; // 이전에 측정한 cpu idle time
+unsigned long prev_cpu_nonidle; // 이전에 측정한 cpu nonidle time
+unsigned long prev_cpu_time; // 이전에 측정한 cpu time
+unsigned long cur_cpu_idle; // 새로 측정한 cpu idle time
+unsigned long cur_cpu_nonidle; // 새로 측정한 cpu nonidle time
+unsigned long cur_cpu_time; // 새로 측정한 cpu time
+unsigned long prev_time; // 이전에 측정한 시간
+unsigned long cur_time; // 새로 측정한 시간
 
-typedef struct _task_info {
+typedef struct _task_info { // 각 프로세스의 정보 담을 구조체
 	pid_t pid;
 	char user_name[MAX_USER_NAME + 1];
-	long pr;
-	long ni;
+	long pr; // priority
+	long ni; // nice
 	unsigned long virt;
 	unsigned long res;
 	unsigned long shr;
-	char s[2];
+	char s[2]; // status
 	float cpu;
 	float mem;
-	unsigned long time;
+	unsigned long time; // process running time
 	char command[BUFFER_SIZE];
 } Task_info;
 
-struct _task_list {
+struct _task_list { // Task_info 배열 관리 구조체
 	Task_info **list;
-	int len;
-	int size;
-	int is_sorted_by_pid;
-	int is_sorted_by_cpu_and_pid;
+	int len; // 원소 개수
+	int size; // 배열 길이 
+	int is_sorted_by_pid; // pid 기준으로 정렬되어있다면 1
+	int is_sorted_by_cpu_and_pid; // cpu, pid 기준으로 정렬되어있다면 1
 } Task_list;
 
-typedef struct _simple_task_info {
-	pid_t pid;
+typedef struct _simple_task_info { // 간략한 프로세스의 정보를 담는 구조체
+	pid_t pid; 
 	float cpu;
 	unsigned long prev_cpu_time;
 	unsigned long cur_cpu_time;
-	int is_updated;
+	int is_updated; // 갱신되었다면 1, 0이라면 사라진 프로세스로 간주하고 삭제해야함
 	char s[2];
 } Simple_task_info;
 
@@ -99,7 +101,7 @@ struct _simple_task_list {
 	int is_sorted_by_cpu_and_pid;
 } Simple_task_list;
 
-struct cpu_info{
+struct cpu_info{ // /proc/stat 첫째줄의 cpu 정보들 담는 구조체
 	unsigned long us;
 	unsigned long sy;
 	unsigned long ni;
@@ -112,34 +114,34 @@ struct cpu_info{
 } cur_cpu_info, prev_cpu_info;
 
 int main(void) {
-	int row, col;
+	int row, col; // 터미널 크기 저장하는데 사용
 	int exit_flag = 0;
 
-	init_screen();
+	init_screen(); // ncurses 이용하여 화면 초기화
 
-	page_size_in_KiB = getpagesize() / 1024;
-	update_time();
-	update_cpu_time();
-	init_task_list();
-	init_simple_task_list();
-	update_simple_task_status();
+	page_size_in_KiB = getpagesize() / 1024; // KiB 단위의 페이지 크기 계산
+	update_time(); // 현재시간 갱신
+	update_cpu_time(); // 현재 cpu시간 갱신
+	init_task_list(); // Task_list 초기화
+	init_simple_task_list(); // Simple_task_list 초기화
+	update_simple_task_status(); // Simple_task_list 갱신
 
 	while(1) {
-		getmaxyx(stdscr, row, col);
-		refresh_page(row, col);
-		while (get_current_time() - cur_time < 3 * MILLIS) {
+		getmaxyx(stdscr, row, col); // 창 크기 확인
+		refresh_page(row, col); // 프로세스 정보들 갱신하여 화면에 출력
+		while (get_current_time() - cur_time < 3 * MILLIS) { // 이전 화면 갱신으로부터 3초가 지나지 않았다면
 			int refresh_page_flag = 0;
 			int key_input;
-			if ((key_input = getch()) != ERR) {
+			if ((key_input = getch()) != ERR) { // 키가 입력됐다면
 				switch (key_input) {
-					case 'q':
+					case 'q': // q 입력됐다면
 						exit_flag = 1;
 						break;
-					case KEY_UP:
+					case KEY_UP: // 위쪽 방향키 입력됐다면
 						decrease_print_start_index();
 						refresh_page_flag = 1;
 						break;
-					case KEY_DOWN:
+					case KEY_DOWN: // 아래 방향키 입력됐다면
 						increase_print_start_index();
 						refresh_page_flag = 1;
 						break;
@@ -164,24 +166,24 @@ void init_screen() {
 	initscr();
 	cbreak();
 	noecho();
-	keypad(stdscr, TRUE);
+	keypad(stdscr, TRUE); // 방향키 입력을 위하여
 	nodelay(stdscr, TRUE);
-	curs_set(0);
+	curs_set(0); // 커서 안보이도록
 
 	return;
 }
 
 void refresh_page(int row, int col) {
-	update_time();
-	update_cpu_time();
-	update_simple_task_status();
-	update_task_status(row - 7);
-	check_task_status();
+	update_time(); // 시간 갱신
+	update_cpu_time(); // cpu 시간 갱신
+	update_simple_task_status(); // simple_task_list 갱신
+	update_task_status(row - 7); // task_list 갱신
+	check_task_status(); // task들 상태 개수 갱신
 
-	clear();
-	print_system_infos(col);
-	print_process_infos(row, col);
-	refresh();
+	clear(); // 화면 내용 지움
+	print_system_infos(col); // ttop 명령어 상단의 정보들 출력
+	print_process_infos(row, col); // ttop 명령어 하단의 프로세스 정보 출력
+	refresh(); // 새로운 화면 내용 표시
 
 	return;
 }
@@ -189,6 +191,7 @@ void refresh_page(int row, int col) {
 void print_system_infos(int col) {
 	char info_string[1024];
 	char *current_time_string, *running_time_string, *user_count_string, *load_average_string;
+	// 출력할 각종 정보들 문자열 만듦
 	current_time_string = print_current_time();
 	running_time_string = print_running_time();
 	user_count_string = print_user_count();
@@ -201,10 +204,13 @@ void print_system_infos(int col) {
 	free(user_count_string );
 	free(load_average_string );
 
+	// tasks 정보 출력
 	print_task_infos(col);
 
+	// cpu 정보 출력
 	print_cpu_infos(col);
 
+	// mem 정보 출력
 	print_mem_infos(col);
 	printw("\n");
 
@@ -239,6 +245,7 @@ char *print_running_time() {
 	char *running_time_text;
 	running_time_text = (char *)malloc(16 * sizeof(char));
 
+	// /proc/uptime 정보들 가져옴
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
 		endwin();
@@ -247,9 +254,11 @@ char *print_running_time() {
 	fscanf(fp, "%f", &fuptime);
 	fclose(fp);
 
+	// 시간 계산
 	hour = fuptime / (60 * 60);
 	minute = (fuptime - (hour *60 * 60)) / 60;
 
+	// 문자열 형식으로 변환
 	if (hour == 0) {
 		sprintf(running_time_text, "%d min", minute);
 	} else {
@@ -265,6 +274,7 @@ char *print_user_count() {
 	char *user_count_string;
 	user_count_string = (char *)malloc(8 * sizeof(char));
 
+	// 로그인 된 유저 수 계산
 	setutxent();
 	while ((utmpxp = getutxent()) != NULL) {
 		if (utmpxp->ut_type == USER_PROCESS) {
@@ -286,6 +296,7 @@ char *print_load_average() {
 	char *load_average_string;
 	load_average_string = (char *)malloc(32 * sizeof(char));
 
+	// /proc/loadavg에서 load average 정보 읽음
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
 		endwin();
@@ -320,6 +331,7 @@ void print_cpu_infos(int col) {
 	char cpu_info_string[1024];
 	float interval = sysconf(_SC_CLK_TCK) * (cur_time - prev_time);
 
+	// /proc/stat에서 cpu 정보들 읽음
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
 		endwin();
@@ -340,6 +352,7 @@ void print_cpu_infos(int col) {
 	cur_cpu_info.st = st;
 	cur_cpu_info.total = total;
 
+	// 각각의 사용량 계산
 	fus = ((us - prev_cpu_info.us) / (float)(total - prev_cpu_info.total)) * 100.0;
 	fsy = ((sy - prev_cpu_info.sy) / (float)(total - prev_cpu_info.total)) * 100.0;
 	fni = ((ni - prev_cpu_info.ni) / (float)(total - prev_cpu_info.total)) * 100.0;
@@ -357,6 +370,7 @@ void print_cpu_infos(int col) {
 
 void check_task_status() {
 	int i;
+	// 프로세스들의 상태 개수 갱신
 	running = 0;
 	sleeping = 0;
 	stopped = 0;
@@ -391,6 +405,7 @@ void print_mem_infos(int col) {
 	// buffers -> Buffers in /proc/meminfo
 	// cache -> Cached and SReclaimable in /proc/meminfo
 
+	// /proc/meminfo에서 메모리 관련 정보들 읽음
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
 		endwin();
@@ -412,6 +427,7 @@ void print_mem_infos(int col) {
 
 	fclose(fp);
 
+	// 각 항목 계산하여 출력
 	mem_cache = mem_cached + mem_SReclaimable;
 	mem_used = mem_total - mem_free - mem_buffers - mem_cache;
 	swap_used = swap_total - swap_free;
@@ -441,7 +457,7 @@ void free_task_list() {
 	return;
 }
 
-void init_task_list() {
+void init_task_list() { // Task_list 초기화
 	free_task_list();
 	Task_list.list = (Task_info **)malloc(INIT_LIST_SIZE * sizeof(Task_info));
 	if (Task_list.list == NULL) {
@@ -457,11 +473,11 @@ void init_task_list() {
 	return;
 }
 
-void append_to_task_list(Task_info* new_info) {
-	if (Task_list.len == Task_list.size) {
-		Task_list.size *= 2;
+void append_to_task_list(Task_info* new_info) { // Task_list에 새로운 원소 추가
+	if (Task_list.len == Task_list.size) { // 배열이 꽉 찼다면
+		Task_list.size *= 2; // 크기 두배로 늘림
 		Task_list.list = (Task_info **)realloc(Task_list.list, Task_list.size * sizeof(Task_info *));
-		if (Task_list.list == NULL) {
+		if (Task_list.list == NULL) { // 메모리 재할당 실패 시
 			fprintf(stderr, "realloc error in append_to_task_list\n");
 			endwin();
 			exit(1);
@@ -474,7 +490,7 @@ void append_to_task_list(Task_info* new_info) {
 	return;
 }
 
-Task_info *make_new_task_info(pid_t pid) {
+Task_info *make_new_task_info(pid_t pid) { // pid에 해당하는 프로세스의 Task_info 생성
 	FILE *fp;
 	char fname[MAXNAMLEN + 1];
 	char tmp[BUFFER_SIZE];
@@ -496,6 +512,7 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	//printf("2222\n");
 	/////
+	// /proc/[pid]/stat에서 필요한 정보들 읽어옴
 	sprintf(fname, "/proc/%d/stat", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -508,24 +525,26 @@ Task_info *make_new_task_info(pid_t pid) {
 	fscanf(fp, "%s", new_info->s);
 	for(i = 0; i < 10; ++i)
 		fscanf(fp, "%s", tmp);
-	fscanf(fp, "%lu%lu", &stime, &utime);
+	fscanf(fp, "%lu%lu", &stime, &utime); // stime, utime 
 	new_info->time = stime + utime;
 	for(i = 0; i < 2; ++i)
 		fscanf(fp, "%s", tmp);
-	fscanf(fp, "%ld%ld", &(new_info->pr), &(new_info->ni));
+	fscanf(fp, "%ld%ld", &(new_info->pr), &(new_info->ni)); // pr, ni
 	fclose(fp);
 	
 	//printf("3333\n");
 	/////
+	// /proc/[pid]/loginuid에서 필요한 정보들 읽어옴
 	sprintf(fname, "/proc/%d/loginuid", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
 		endwin();
 		exit(1);
 	}
-	fscanf(fp, "%d", &uid);
+	fscanf(fp, "%d", &uid); // uid
 	fclose(fp);
 
+	// uid 이용하여 user name 얻어옴
 	if ((result = getpwuid(uid)) == NULL) {
 		strcpy(new_info->user_name, "root");
 	} else {
@@ -534,18 +553,20 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	//printf("4444\n");
 	/////
+	// /proc/[pid]/status에서 필요한 정보 읽어옴
 	sprintf(fname, "/proc/%d/status", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
 		endwin();
 		exit(1);
 	}
-	fscanf(fp, "%s%s", tmp, new_info->command);
+	fscanf(fp, "%s%s", tmp, new_info->command); // command
 
 	fclose(fp);
 
 	//printf("5555\n");
 	/////
+	// /proc/[pid]/statm에서 필요한 정보 읽어옴
 	sprintf(fname, "/proc/%d/statm", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -554,12 +575,13 @@ Task_info *make_new_task_info(pid_t pid) {
 	}
 	fscanf(fp, "%lu%lu%lu", &(new_info->virt), &(new_info->res), &(new_info->shr));
 	fclose(fp);
-	new_info->virt *= page_size_in_KiB;
-	new_info->res *= page_size_in_KiB;
-	new_info->shr *= page_size_in_KiB;
+	new_info->virt *= page_size_in_KiB; // virt
+	new_info->res *= page_size_in_KiB; // res
+	new_info->shr *= page_size_in_KiB; // shr
 
 	//printf("6666\n");
 	/////
+	// /proc/meminfo에서 필요한 정보 읽어옴
 	sprintf(fname, "/proc/meminfo");
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -571,39 +593,14 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	new_info->mem = (new_info->res) / mem_total * 100.0;
 
-	//PID - directory name - ok
-	//S - stat - ok
-	//PR - stat - ok
-	//NI - stat - ok
-	//TIME+ - stat - stime + utime - ok
-	//%CPU - (usageSystemMode + usageUserMode) / tick_count - ok
-	//USER - getpwnam(/proc/$pid/loginuid) - ok
-	//COMMAND - status - ok
-	//VIRT - statm (VmSize - 1) * pagesize(getpagesize()) / 1024(KiB)) - ok
-	//RES - statm (VmRSS - 2) * pagesize(getpagesize()) / 1024(KiB)) - ok
-	//SHR - statm (shared * pagesize(getpagesize()) / 1024(KiB)) - ok
-	//%MEM - (RES - SHR) / mem_total(/proc/meminfo) * 100 - ok
-	
-//	char user_name[MAX_USER_NAME + 1];
-//	int pr;
-//	int ni;
-//	int virt;
-//	int res;
-//	int shr;
-//	int s;
-//	float cpu;
-//	float mem;
-//	int time;
-//	char command[BUFFER_SIZE];
-
 	return new_info;
 }
 
-int compare_by_pid(const void *a, const void *b) {
+int compare_by_pid(const void *a, const void *b) { // qsort에 사용
 	return (*(Task_info **)a)->pid - (*(Task_info **)b)->pid;
 }
 
-int compare_by_cpu_and_pid(const void *_a, const void *_b) {
+int compare_by_cpu_and_pid(const void *_a, const void *_b) { // qsort에 사용
 	int a_cpu, b_cpu;
 	Task_info **a = (Task_info **)_a;
 	Task_info **b = (Task_info **)_b;
@@ -617,21 +614,21 @@ int compare_by_cpu_and_pid(const void *_a, const void *_b) {
 	}
 }
 
-void sort_list_by_pid() {
+void sort_list_by_pid() { // pid 기준으로 정렬
 	Task_list.is_sorted_by_pid = 1;
 	Task_list.is_sorted_by_cpu_and_pid = 0;
 
 	qsort(Task_list.list, Task_list.len, sizeof(Task_info *), compare_by_pid);
 }
 
-void sort_list_by_cpu_and_pid() {
+void sort_list_by_cpu_and_pid() { // cpu사용량, pid 기준으로 정렬
 	Task_list.is_sorted_by_pid = 0;
 	Task_list.is_sorted_by_cpu_and_pid = 1;
 
 	qsort(Task_list.list, Task_list.len, sizeof(Task_info *), compare_by_cpu_and_pid);
 }
 
-Task_info **find_element(pid_t pid) {
+Task_info **find_element(pid_t pid) { // Task_list에서 pid로 검색
 	Task_info tmp_info;
 	Task_info *key;
 	if (!Task_list.is_sorted_by_pid) {
@@ -643,18 +640,18 @@ Task_info **find_element(pid_t pid) {
 	return bsearch(&key, Task_list.list, Task_list.len, sizeof(Task_info *), compare_by_pid);
 }
 
-void print_list() {
-	int i;
-
-	printf("*** Task_info ***\n");
-	for (i = 0; i < Task_list.len; ++i) {
-		printf("pid: %d, cpu: %.1f\n", Task_list.list[i]->pid, Task_list.list[i]->cpu);
-		printf("username: %s, pri: %ld, ni: %ld, virt: %lu, res: %lu, shr: %lu, s: %s, mem: %.1f, time: %lu, command: %s\n", Task_list.list[i]->user_name, Task_list.list[i]->pr, Task_list.list[i]->ni, Task_list.list[i]->virt, Task_list.list[i]->res, Task_list.list[i]->shr, Task_list.list[i]->s, Task_list.list[i]->mem, Task_list.list[i]->time, Task_list.list[i]->command);
-	}
-	printf("\n");
-
-	return;
-}
+//void print_list() { // Task_list 내용 출력 - 디버깅용
+//	int i;
+//
+//	printf("*** Task_info ***\n");
+//	for (i = 0; i < Task_list.len; ++i) {
+//		printf("pid: %d, cpu: %.1f\n", Task_list.list[i]->pid, Task_list.list[i]->cpu);
+//		printf("username: %s, pri: %ld, ni: %ld, virt: %lu, res: %lu, shr: %lu, s: %s, mem: %.1f, time: %lu, command: %s\n", Task_list.list[i]->user_name, Task_list.list[i]->pr, Task_list.list[i]->ni, Task_list.list[i]->virt, Task_list.list[i]->res, Task_list.list[i]->shr, Task_list.list[i]->s, Task_list.list[i]->mem, Task_list.list[i]->time, Task_list.list[i]->command);
+//	}
+//	printf("\n");
+//
+//	return;
+//}
 
 // simple task info
 void free_simple_task_list() {
@@ -675,7 +672,7 @@ void free_simple_task_list() {
 	return;
 }
 
-void init_simple_task_list() {
+void init_simple_task_list() { // Simple_task_list 초기화
 	free_simple_task_list();
 	Simple_task_list.list = (Simple_task_info **)malloc(INIT_LIST_SIZE * sizeof(Simple_task_info *));
 	if (Simple_task_list.list == NULL) {
@@ -692,10 +689,10 @@ void init_simple_task_list() {
 }
 
 void append_to_simple_task_list(Simple_task_info *new_info) {
-	if (Simple_task_list.len == Simple_task_list.size) {
-		Simple_task_list.size *= 2;
+	if (Simple_task_list.len == Simple_task_list.size) { // 배열 꽉찼으면
+		Simple_task_list.size *= 2; // 크기 두배로 늘림
 		Simple_task_list.list = (Simple_task_info **)realloc(Simple_task_list.list, Simple_task_list.size * sizeof(Simple_task_info *));
-		if (Simple_task_list.list == NULL) {
+		if (Simple_task_list.list == NULL) { // 메모리 할당 실패 시
 			fprintf(stderr, "realloc error in append_to_simple_task_list\n");
 			endwin();
 			exit(1);
@@ -721,7 +718,7 @@ Simple_task_info *make_new_simple_task_info(pid_t pid) {
 	return new_info;
 }
 
-int compare_simple_by_pid(const void *_a, const void *_b) {
+int compare_simple_by_pid(const void *_a, const void *_b) { // qsort에 사용
 	//printf("compare start\n");
 	Simple_task_info **a = (Simple_task_info **)_a;
 	Simple_task_info **b = (Simple_task_info **)_b;
@@ -730,7 +727,7 @@ int compare_simple_by_pid(const void *_a, const void *_b) {
 	return (*a)->pid - (*b)->pid;
 }
 
-int compare_simple_by_cpu_and_pid(const void *_a, const void *_b) {
+int compare_simple_by_cpu_and_pid(const void *_a, const void *_b) { // qsort에 사용
 	int a_cpu, b_cpu;
 	Simple_task_info **a = (Simple_task_info **)_a;
 	Simple_task_info **b = (Simple_task_info **)_b;
@@ -744,54 +741,51 @@ int compare_simple_by_cpu_and_pid(const void *_a, const void *_b) {
 	}
 }
 
-void sort_simple_list_by_pid() {
+void sort_simple_list_by_pid() { // pid 기준으로 정렬
 	Simple_task_list.is_sorted_by_pid = 1;
 	Simple_task_list.is_sorted_by_cpu_and_pid = 0;
 
 	qsort(Simple_task_list.list, Simple_task_list.len, sizeof(Simple_task_info *), compare_simple_by_pid);
 }
 
-void sort_simple_list_by_cpu_and_pid() {
+void sort_simple_list_by_cpu_and_pid() { // cpu 사용률과 pid 기준으로 정렬
 	Simple_task_list.is_sorted_by_pid = 0;
 	Simple_task_list.is_sorted_by_cpu_and_pid = 1;
 
 	qsort(Simple_task_list.list, Simple_task_list.len, sizeof(Simple_task_info *), compare_simple_by_cpu_and_pid);
 }
 
-Simple_task_info **find_simple_element(pid_t pid) {
+Simple_task_info **find_simple_element(pid_t pid) { // Simple_Task_list에서 pid로 검색
 	Simple_task_info tmp_info;
 	Simple_task_info *key;
-	//printf("-1111\n");
 	if (!Simple_task_list.is_sorted_by_pid) {
 		sort_simple_list_by_pid();
 	}
-	//printf("-2222\n");
 
 	tmp_info.pid = pid;
 	key = &tmp_info;
-	//printf("-3333\n");
 	return (Simple_task_info **)bsearch(&key, Simple_task_list.list, Simple_task_list.len, sizeof(Simple_task_info *), compare_simple_by_pid);
 }
 
-void print_simple_list() {
-	int i;
-
-	printf("*** Simple_task_info ***\n");
-	for (i = 0; i < Simple_task_list.len; ++i) {
-		//if (Simple_task_list.list[i]->cpu > 0)
-		printf("pid: %d, cpu: %.1f, cputime: %lu\n", Simple_task_list.list[i]->pid, Simple_task_list.list[i]->cpu, Simple_task_list.list[i]->cur_cpu_time - Simple_task_list.list[i]->prev_cpu_time);
-	}
-	printf("\n");
-
-	return;
-}
+//void print_simple_list() {
+//	int i;
+//
+//	printf("*** Simple_task_info ***\n");
+//	for (i = 0; i < Simple_task_list.len; ++i) {
+//		//if (Simple_task_list.list[i]->cpu > 0)
+//		printf("pid: %d, cpu: %.1f, cputime: %lu\n", Simple_task_list.list[i]->pid, Simple_task_list.list[i]->cpu, Simple_task_list.list[i]->cur_cpu_time - Simple_task_list.list[i]->prev_cpu_time);
+//	}
+//	printf("\n");
+//
+//	return;
+//}
 
 //////////////////////////////////////////////////////////////
 
-unsigned int print_start_index;
-void increase_print_start_index() {
-	if (print_start_index >= Simple_task_list.len - 1) {
-		print_start_index = Simple_task_list.len - 1;
+unsigned int print_start_index; // 출력 시작할 Task_list의 인덱스
+void increase_print_start_index() { // print_start_index 증가시킴
+	if (print_start_index >= Simple_task_list.len - 1) { // 맨 마지막 원소이면
+		print_start_index = Simple_task_list.len - 1; // 증가시키지 않음
 	} else {
 		++print_start_index;
 	}
@@ -799,9 +793,9 @@ void increase_print_start_index() {
 	return;
 }
 
-void decrease_print_start_index() {
-	if (print_start_index <= 0) {
-		print_start_index = 0;
+void decrease_print_start_index() { // print_start_index 감소시킴
+	if (print_start_index <= 0) { // 맨 앞 원소이면
+		print_start_index = 0; // 감소시키지 않음
 	} else {
 		--print_start_index;
 	}
@@ -817,7 +811,7 @@ void update_time() {
 	return;
 }
 
-unsigned long get_current_time() {
+unsigned long get_current_time() { // 현재시간 밀리초단위로 리턴
 	struct timespec ts;
 
 	if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
@@ -836,6 +830,7 @@ void update_cpu_time() {
 	char tmp[BUFFER_SIZE];
 	unsigned long user, nice, system, idle, lowait, irq, softirq, steal, guest, guest_nice;
 
+	// /proc/stat에서 원하는 정보 읽어온다
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
 		endwin();
@@ -845,11 +840,13 @@ void update_cpu_time() {
 	fscanf(fp, "%s%lu%lu%lu%lu%lu%lu%lu%lu%lu%lu", tmp, &user, &nice, &system, &idle, &lowait, &irq, &softirq, &steal, &guest, &guest_nice);
 	fclose(fp);
 
+	// 이전 cpu time 갱신
 	prev_cpu_nonidle = cur_cpu_nonidle;
 	prev_cpu_idle = cur_cpu_idle;
 	prev_cpu_time = cur_cpu_time;
 	//cur_cpu_time = user + nice + system + idle + lowait + irq + softirq + steal + guest + guest_nice;
 
+	// 새로운 cpu time 갱신
 	cur_cpu_nonidle = user + nice + system + irq + softirq + steal;
 	cur_cpu_idle = idle + lowait;
 	cur_cpu_time = cur_cpu_nonidle + cur_cpu_idle;
@@ -858,33 +855,19 @@ void update_cpu_time() {
 }
 
 void update_task_status(int max_count) {
-	//PID - directory name
-	//USER - getpwnam(/proc/$pid/loginuid)
-	//PR - stat
-	//NI - stat
-	//VIRT - status (VmSize)
-	//RES - status (VmRSS)
-	//SHR - statm (shared * pagesize(getpagesize()) / 1024(KiB))
-	//S - stat
-	//%CPU - (usageSystemMode + usageUserMode) / tick_count
-	//%MEM - (RES - SHR) / mem_total(/proc/meminfo) * 100
-	//TIME+ - stime + utime
-	//COMMAND - stat
 	int i;
 	int target_index;
 
-	init_task_list();
-	for(i = 0, target_index = print_start_index; i < max_count && print_start_index + i < Simple_task_list.len; ++i) {
+	init_task_list(); // Task_list 초기화하여 기존에 있던 정보들 다 지운다
+	for(i = 0, target_index = print_start_index; i < max_count && print_start_index + i < Simple_task_list.len; ++i) { // 화면에 출력할 만큼만 Task_info를 생성한다
 		pid_t target_pid;
 
 		target_index = print_start_index + i;
-		target_pid = Simple_task_list.list[target_index]->pid;
+		target_pid = Simple_task_list.list[target_index]->pid; // Simple_task_list에서 Task_info 생성할 프로세스의 pid 가져온다
 
-		//printf("make new task info\n");
-		Task_info *new_info = make_new_task_info(target_pid);
+		Task_info *new_info = make_new_task_info(target_pid); // 새로운 Task_info 생성
 		new_info->cpu = Simple_task_list.list[target_index]->cpu;
-		append_to_task_list(new_info);
-		//printf("finish %d\n", target_index);
+		append_to_task_list(new_info); // 배열에 추가
 	}
 	//print_list();
 }
@@ -910,14 +893,14 @@ void update_simple_task_status() {
 
 	//printf("1111\n");
 
-	while ((dentry = readdir(dirp)) != NULL) {
+	while ((dentry = readdir(dirp)) != NULL) { // /proc 디렉토리 내의 모든 파일을 확인한다
 		//printf("2222\n");
 		pid_t pid;
 		if (dentry->d_ino == 0)
 			continue;
 
 		memcpy(filename, dentry->d_name, MAXNAMLEN);
-		if ((pid = atoi(filename))) {
+		if ((pid = atoi(filename))) { // 파일명이 숫자일때
 			FILE *fp;
 			unsigned long stime, utime;
 			char proc_stat_filename[MAXNAMLEN + 1];
@@ -926,16 +909,17 @@ void update_simple_task_status() {
 			int i;
 			//printf("2.5222\n");
 			Simple_task_info *task_info ;
-			Simple_task_info **task_info_p = find_simple_element(pid);
+			Simple_task_info **task_info_p = find_simple_element(pid); // 해당 pid의 정보가 이미 존재하는지 확인한다
 			//printf("3333\n");
-			if (task_info_p == NULL) {
+			if (task_info_p == NULL) { // 해당 pid의 정보가 없다면
 				is_new_info = 1;
-				task_info = make_new_simple_task_info(pid);
+				task_info = make_new_simple_task_info(pid); // 새로 생성
 			} else {
 				task_info = *task_info_p;
 			}
 
 			//printf("4444\n");
+			// /proc/[pid]/stat에서 필요한 정보를 읽어온다
 			sprintf(proc_stat_filename, "/proc/%d/stat", pid);
 			if ((fp = fopen(proc_stat_filename, "r")) == NULL) {
 				fprintf(stderr, "fopen error for %s\n", proc_stat_filename);
@@ -945,15 +929,15 @@ void update_simple_task_status() {
 
 			for (i = 0; i < 2; ++i)
 				fscanf(fp, "%s", tmp);
-			fscanf(fp, "%s", task_info->s);
+			fscanf(fp, "%s", task_info->s); // status
 			for (i = 0; i < 10; ++i)
 				fscanf(fp, "%s", tmp);
-			fscanf(fp, "%lu%lu", &utime, &stime);
+			fscanf(fp, "%lu%lu", &utime, &stime); // utime, stime
 			fclose(fp);
 
 			//printf("5555\n");
 			task_info->cur_cpu_time = utime + stime;
-			task_info->cpu = ((float)(task_info->cur_cpu_time - task_info->prev_cpu_time) / (sysconf(_SC_CLK_TCK) * (cur_time - prev_time))) * 100.0 * MILLIS;
+			task_info->cpu = ((float)(task_info->cur_cpu_time - task_info->prev_cpu_time) / (sysconf(_SC_CLK_TCK) * (cur_time - prev_time))) * 100.0 * MILLIS; // cpu 사용량 계산
 			if (task_info->cpu > 100.0) {
 				task_info->cpu = 100.0;
 			}
@@ -987,7 +971,7 @@ void update_simple_task_status() {
 	return;
 }
 
-void print_process_infos(int row, int col) {
+void print_process_infos(int row, int col) { // 여러 프로세스의 정보들을 출력
 	int i;
 	char task_info_string[1024];
 
@@ -997,14 +981,11 @@ void print_process_infos(int row, int col) {
 	for (i = 0; i < Task_list.len; ++i) {
 		print_process_info(i, col);
 	}
-//	for (i = 0; i < row - 7 - Task_list.len; ++i) {
-//		printw("\n");
-//	}
 
 	return;
 }
 
-void print_process_info(int index, int col) {
+void print_process_info(int index, int col) { // 프로세스 하나의 정보 출력
 	Task_info *t;
 	char task_info_string[1024];
 	char pr_string[10];

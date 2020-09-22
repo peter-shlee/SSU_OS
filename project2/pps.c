@@ -19,7 +19,7 @@ unsigned long uptime;
 const int NANOS = 1000000000;
 const int MILLIS = 1000;
 
-typedef struct _Task_info {
+typedef struct _Task_info { // 프로세스 정보 담는 구조체
 	char user[10]; // 8글자 이상이면 7번째 문자까지만 표시하고 뒤에 +
 	pid_t pid;
 	uid_t euid;
@@ -31,20 +31,20 @@ typedef struct _Task_info {
 	char stat[10];
 	char start[10];
 	char time[10];
-	char default_time[10];
+	char default_time[10]; // 아무 옵션 없는 pps명령어에 사용할 시간 format
 	char command[128];
 
 //	int is_background_process;
 //	int is_terminal_process;
 } Task_info;
 
-struct _task_list {
+struct _task_list { // Task_info 배열 관리 구조체
 	Task_info **list;
 	int len;
 	int size;
 } Task_list;
 
-void update_uptime();
+void update_uptime(); // uptime 갱신
 void print_list();
 void sort_list_by_pid();
 int compare_by_pid(const void *a, const void *b);
@@ -109,21 +109,21 @@ int main(int argc, char *argv[]) {
 	//printf("%s\n", tty);
 
 	init_screen();
-	getmaxyx(stdscr, y, x);
+	getmaxyx(stdscr, y, x); // 화면 크기만 알아내고 바로 종료
 	endwin();
 
-	page_size_in_KiB = getpagesize() / 1024;
-	check_options(argc, argv);
+	page_size_in_KiB = getpagesize() / 1024; // KiB 단위의 페이지 크기 계산
+	check_options(argc, argv); // 옵션 확인
 	//print_selected_options();
 
 	euid = geteuid();
-	get_cur_usr_name();
-	update_uptime();
-	init_device_list();
-	get_devices();
+	get_cur_usr_name(); // 이 프로세스 실행한 유저 이름 가져온다
+	update_uptime(); // uptime 구해서 저장
+	init_device_list(); // Device_list 초기화
+	get_devices(); // /dev 에서 device 목록 가져와 저장
 	//print_device_list();
-	init_task_list();
-	update_task_status();
+	init_task_list(); // Task_list 초기화
+	update_task_status(); // 
 
 	print_list();
 
@@ -443,34 +443,6 @@ Task_info *make_new_task_info(pid_t pid) {
 	strcpy(new_info->start, time_string);
 	free(time_string);
 
-	//%CPU - (usageSystemMode + usageUserMode) / tick_count - ok
-	//START - ok
-	//TTY
-	//S - stat - ok
-	//       <, N -> NI - stat 이용
-	//       L -> status-VmLck 이용
-	//       s - 세션리더 stat-(6)session pid 이용
-	//       l - 멀티스레드 - stat-(20)num_thread 이용
-	//       + - foreground 프로세스 - stat-(5)pgrp과 stat-(8)tpgid 이용
-	//PID - directory name - ok
-	//TIME+ - stat - stime + utime - ok
-	//USER - getpwnam(/proc/$pid/loginuid) - 7글자 수정 필요
-	//COMMAND - status - ok
-	//VIRT - statm (VmSize - 1) * pagesize(getpagesize()) / 1024(KiB)) - ok
-	//RES - statm (VmRSS - 2) * pagesize(getpagesize()) / 1024(KiB)) - ok
-	//%MEM - (RES - SHR) / mem_total(/proc/meminfo) * 100 - ok
-	
-//	char user[10]; // 8글자 이상이면 7번째 문자까지만 표시하고 뒤에 +
-//	pid_t pid;
-//	float cpu;
-//	float mem;
-//	unsigned long vsz;
-//	unsigned long rss;
-//	char tty[20];
-//	char stat[10];
-//	char start[10];
-//	char time[10];
-//	char command[128];
 
 	return new_info;
 }
@@ -482,19 +454,7 @@ int compare_by_pid(const void *a, const void *b) {
 void sort_list_by_pid() {
 	qsort(Task_list.list, Task_list.len, sizeof(Task_info *), compare_by_pid);
 }
-//
-//Task_info **find_element(pid_t pid) {
-//	Task_info tmp_info;
-//	Task_info *key;
-//	if (!Task_list.is_sorted_by_pid) {
-//		sort_list_by_pid();
-//	}
-//
-//	tmp_info.pid = pid;
-//	key = &tmp_info;
-//	return bsearch(&key, Task_list.list, Task_list.len, sizeof(Task_info *), compare_by_pid);
-//}
-//
+
 void print_list() {
 	int i;
 	char ts[1024];

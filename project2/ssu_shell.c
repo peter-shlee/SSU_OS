@@ -11,9 +11,9 @@
 #define MAX_TOKEN_SIZE 64
 #define MAX_NUM_TOKENS 64
 
-void execute_command(char **tokens, int command_start_index, int stdin_fd);
-int get_next_pipe_index(char **tokens, int command_start_index);
-int check_exit_status(int status);
+void execute_command(char **tokens, int command_start_index, int stdin_fd); // 명령어실행 함수
+int get_next_pipe_index(char **tokens, int command_start_index); // 다음 파이프 명령어의 인덱스를 찾아 반환하는 함수
+int check_exit_status(int status); // 자식 프로세스의 종료 상태를 확인하는 함수
 
 /* Splits the string by space and returns the array of tokens
 *
@@ -131,7 +131,7 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 	if ((pid = fork()) > 0) { // 부모 프로세스
 		waitpid(pid, &status, WUNTRACED);
 		if (!check_exit_status(status)){ // 자식 프로세스가 적절하게 종료되었는지 확인한다
-			return;
+			return; // 제대로 종료되지 않았다면 여기서 바로 함수 종료
 		}
 		if (pipe_index > 0) { // 파이프 명령어 있었다면
 			close(pipe_fd[1]); // 안쓰는 파이프 파일 close
@@ -152,7 +152,7 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 			dup2(stdin_fd, 0); // 표준 입력을 파이프로 리디렉션
 		}
 
-		if (execvp(tokens[command_start_index], tokens + command_start_index) < 0) {
+		if (execvp(tokens[command_start_index], tokens + command_start_index) < 0) { // 명령어 실행
 			fprintf(stderr, "SSUShell : Incorrect command\n");
 			exit(1);
 		}
