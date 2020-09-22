@@ -346,7 +346,10 @@ Task_info *make_new_task_info(pid_t pid) {
 		endwin();
 		exit(1);
 	}
-	fscanf(fp, "%s%s", tmp, new_info->command); // COMMAND
+	fscanf(fp, "%s%s", tmp, tmp_command); // COMMAND
+	tmp_command[15] = '\0';
+	sprintf(new_info->command, "[%s]", tmp_command);
+	strcpy(tmp_command, "");
 	for (i = 0; i < 8; ++i)
 		fgets(tmp, BUFFER_SIZE, fp);
 	fscanf(fp, "%s%s%d%s%s", tmp, tmp, &(new_info->euid), tmp, tmp); // euid

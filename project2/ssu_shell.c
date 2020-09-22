@@ -118,7 +118,6 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 	int pipe_index;
 
 	if (!tokens[command_start_index]) { // 첫번째 토큰이 NULL인 경우
-		fprintf(stderr, "invalid command.\n");
 		return;
 	}
 
@@ -131,7 +130,7 @@ void execute_command(char **tokens, int command_start_index, int stdin_fd){
 
 	if ((pid = fork()) > 0) { // 부모 프로세스
 		waitpid(pid, &status, WUNTRACED);
-		if (!check_exit_status(status)){ // 자식 프로세스가 정상적으로 종료되지 않았다면
+		if (!check_exit_status(status)){ // 자식 프로세스가 적절하게 종료되었는지 확인한다
 			return;
 		}
 		if (pipe_index > 0) { // 파이프 명령어 있었다면
