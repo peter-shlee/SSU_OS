@@ -45,25 +45,24 @@ struct _task_list { // Task_info 배열 관리 구조체
 } Task_list;
 
 void update_uptime(); // uptime 갱신
-void print_list();
-void sort_list_by_pid();
-int compare_by_pid(const void *a, const void *b);
-Task_info *make_new_task_info(pid_t pid);
-void append_to_task_list(Task_info* new_info);
+void print_list(); // 프로세스 정보들 출력
+void sort_list_by_pid(); // pid 기준으로 Task_list 정렬하는 함수
+int compare_by_pid(const void *a, const void *b); // qsrot에 사용
+Task_info *make_new_task_info(pid_t pid); // 새로운 Task_info 생성하는 함수
+void append_to_task_list(Task_info* new_info); // Task_list에 원소 추가하는 함수
 void init_task_list();
 void free_task_list();
-char *convert_time_format(unsigned long time);
-char *convert_start_time(unsigned long long time);
-char *convert_default_time_format(unsigned long time);
-void update_task_status();
-unsigned long get_current_time();
-void print_u_format(Task_info *t);
-void print_a_x_format(Task_info *t);
-void print_selected_options();
-void print_default_format(Task_info *t);
-unsigned long get_current_time();
+char *convert_time_format(unsigned long time); // a, u, x 옵션으로 출력할때 시간 포맷으로 변환하는 함수
+char *convert_start_time(unsigned long long time); // 프로세스 시작된 시간 포맷으로 변환하는 함수
+char *convert_default_time_format(unsigned long time); // 옵션없이 실행됐을 때 시간 포맷으로 변환하는 함수
+void update_task_status(); // Task_list 갱신하는 함수
+unsigned long get_current_time(); // 현재시간 밀리초단위로 구해서 리턴하는 함수
+void print_u_format(Task_info *t); // u옵션 출력 양식으로 프로세스 정보 하나 출력
+void print_a_x_format(Task_info *t); // a, x 옵션 출력 양식으로 프로세스 정보 하나 출력
+void print_selected_options();  // 어느 옵션이 주어졌나 출력 (디버깅용)
+void print_default_format(Task_info *t);// 아무 옵션 없을 때 양식으로 프로세스 정보 하나 출력
 
-typedef struct _Device_info {
+typedef struct _Device_info { // /dev에 있는 파일들 검사해서 여기에 저장해둔다
 	char name[MAXNAMLEN + 1];
 	unsigned int major_nr;
 	unsigned int minor_nr;
@@ -75,12 +74,12 @@ struct _Device_list {
 	int size;
 } Device_list;
 
-void get_devices();
+void get_devices(); // /dev 디렉토리 확인해서 저장하는 함수
 void free_device_list();
 void init_device_list();
-void append_to_device_list(Device_info* new_info);
+void append_to_device_list(Device_info* new_info);// 새 원소 추가 함수
 void print_device_list();
-void get_cur_usr_name();
+void get_cur_usr_name(); // 이 프로세스 실행한 유저 이름 구하는 함수
 
 void init_screen();
 void check_options(int argc, char *argv[]);
@@ -92,8 +91,8 @@ int option_x = 0;
 int page_size_in_KiB;
 char cur_usr_name[BUFFER_SIZE];
 uid_t euid;
-unsigned int cp_major;
-unsigned int cp_minor;
+unsigned int cp_major; // 현재 프로세스의 tty major number
+unsigned int cp_minor; // 현재 프로세스의 tty minor number
 char *tty;
 int x, y;
 char print_buf[1024];
@@ -123,7 +122,7 @@ int main(int argc, char *argv[]) {
 	get_devices(); // /dev 에서 device 목록 가져와 저장
 	//print_device_list();
 	init_task_list(); // Task_list 초기화
-	update_task_status(); // 
+	update_task_status(); // 프로세스 정보들 가져옴
 
 	print_list();
 
@@ -167,7 +166,7 @@ void check_options(int argc, char *argv[]) {
 	return;
 }
 
-void print_selected_options() {
+void print_selected_options() { // 디버깅용 함수
 
 	printf("selected options: ");
 	if (option_a) {
@@ -220,16 +219,16 @@ void init_task_list() {
 }
 
 void append_to_task_list(Task_info* new_info) {
-	if (Task_list.len == Task_list.size) {
-		Task_list.size *= 2;
-		Task_list.list = (Task_info **)realloc(Task_list.list, Task_list.size * sizeof(Task_info *));
-		if (Task_list.list == NULL) {
+	if (Task_list.len == Task_list.size) { // 배열 꽉찼다면
+		Task_list.size *= 2; //배열 사이즈 2배로 늘림
+		Task_list.list = (Task_info **)realloc(Task_list.list, Task_list.size * sizeof(Task_info *)); 
+		if (Task_list.list == NULL) { // 재할당 실패시
 			fprintf(stderr, "realloc error in append_to_task_list\n");
 			endwin();
 			exit(1);
 		}
 	}
-	Task_list.list[(Task_list.len)++] = new_info;
+	Task_list.list[(Task_list.len)++] = new_info; // 새로운 원소 추가
 
 	return;
 }
@@ -265,6 +264,7 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	//printf("2222\n");
 	/////
+	// /proc/[pid]/stat에서 필요한 정보 가져온다
 	sprintf(fname, "/proc/%d/stat", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -274,16 +274,16 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	for(i = 0; i < 2; ++i)
 		fscanf(fp, "%s", tmp);
-	fscanf(fp, "%s", new_info->stat); // s
+	fscanf(fp, "%s", new_info->stat); // status
 	fscanf(fp, "%s", tmp);
-	fscanf(fp, "%d", &pgrp);
-	fscanf(fp, "%d", &session);
-	fscanf(fp, "%ld", &tty_nr);
-	major_nr = major(tty_nr);
-	minor_nr = minor(tty_nr);
+	fscanf(fp, "%d", &pgrp); // pgrp
+	fscanf(fp, "%d", &session); // sid
+	fscanf(fp, "%ld", &tty_nr); // tty_nr
+	major_nr = major(tty_nr); // major 번호
+	minor_nr = minor(tty_nr); // minor 번호
 
 	int tty_find_flag = 0;
-	for(i = 0; i < Device_list.len; ++i) {
+	for(i = 0; i < Device_list.len; ++i) { // 만들어둔 디바이스 리스트에서 일치하는 디바이스를 찾는다
 		if (Device_list.list[i]->major_nr == major_nr) {
 			if (Device_list.list[i]->minor_nr == minor_nr) {
 				tty_find_flag = 1;
@@ -293,7 +293,7 @@ Task_info *make_new_task_info(pid_t pid) {
 		}
 		//printf("ma: %d ,mi: %d, ma2: %d, mi2: %d\n", Device_list.list[i]->major_nr, Device_list.list[i]->minor_nr, major_nr, minor_nr);
 	}
-	if (!tty_find_flag) {
+	if (!tty_find_flag) {// 일치하는 걸 찾지 못했을 때
 		strcpy(new_info->tty, "?");
 	}
 
@@ -301,8 +301,8 @@ Task_info *make_new_task_info(pid_t pid) {
 	for(i = 0; i < 5; ++i)
 		fscanf(fp, "%s", tmp);
 	fscanf(fp, "%lu%lu", &utime, &stime); // time
-	time_string = convert_time_format(stime + utime);
-	default_time_string = convert_default_time_format(stime + utime);
+	time_string = convert_time_format(stime + utime); // a, u, x 옵션일 때 출력할 시간 문자열
+	default_time_string = convert_default_time_format(stime + utime); // 아무 옵션 없을 때 출력할 시간 문자열
 	strcpy(new_info->time, time_string);
 	strcpy(new_info->default_time, default_time_string);
 	free(time_string);
@@ -317,6 +317,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	
 	//printf("3333\n");
 	/////
+	// /proc/[pid]/loginuid에서 필요한 정보 가져온다
 	sprintf(fname, "/proc/%d/loginuid", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -326,7 +327,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	fscanf(fp, "%d", &uid);
 	fclose(fp);
 
-	if ((result = getpwuid(uid)) == NULL) {
+	if ((result = getpwuid(uid)) == NULL) { // 위에서 가져온 uid 이용해 username 알아낸다
 		strcpy(new_info->user, "root");
 	} else {
 		if (strlen(result->pw_name) > 7) {
@@ -340,6 +341,7 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	//printf("4444\n");
 	/////
+	// /proc/[pid]/status에서 필요한 정보 가져온다
 	sprintf(fname, "/proc/%d/status", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -356,7 +358,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	for (i = 0; i < 10; ++i)
 		fgets(tmp, BUFFER_SIZE, fp);
 	fscanf(fp, "%s%ld", tmp, &VmLck); // VmLck
-	if (strcmp(tmp, "VmLck:")) {
+	if (strcmp(tmp, "VmLck:")) { // /proc/[pid]/status에 VmLck 정보가 없는경우
 		VmLck = 0;
 	}
 
@@ -364,6 +366,7 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	//printf("5555\n");
 	/////
+	// /proc/[pid]/statm에서 필요한 정보 가져온다
 	sprintf(fname, "/proc/%d/statm", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -376,6 +379,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	new_info->rss *= page_size_in_KiB; // rss
 
 	// cmdline
+	// /proc/[pid]/cmdline에서 필요한 정보 가져온다
 	sprintf(fname, "/proc/%d/cmdline", pid);
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -384,12 +388,13 @@ Task_info *make_new_task_info(pid_t pid) {
 	}
 	fgets(tmp_command, 1024, fp); // mem
 	fclose(fp);
-	if (strcmp(tmp_command, "")) {
+	if (strcmp(tmp_command, "")) { // cmdline에서 아무것도 가져오지 못한 경우에는 status에서 읽은 command로 대체한다
 		strcpy(new_info->command, tmp_command);
 	}
 
 	//printf("6666\n");
 	/////
+	// /proc/meminfo에서 필요한 정보 가져온다
 	sprintf(fname, "/proc/meminfo");
 	if ((fp = fopen(fname, mode)) == NULL) {
 		fprintf(stderr, "fopen error for %s\n", fname);
@@ -401,7 +406,7 @@ Task_info *make_new_task_info(pid_t pid) {
 
 	new_info->mem = (new_info->rss) / mem_total * 100.0;
 
-	// S 정보 추가
+	// status 상세 정보 추가
 	if (ni > 0) {
 		strcat(new_info->stat, "N");
 	} else if (ni < 0) {
@@ -455,10 +460,11 @@ void sort_list_by_pid() {
 	qsort(Task_list.list, Task_list.len, sizeof(Task_info *), compare_by_pid);
 }
 
-void print_list() {
+void print_list() { // 프로세스 정보들을 출력한다
 	int i;
 	char ts[1024];
 
+	// 각 항목 이름 출력
 	if (option_u) {
 		sprintf(ts, "%-8s%5s%5s%5s %7s %6s %-7s %-4s%6s%8s %s", "USER", "PID", "%CPU", "%MEM", "VSZ", "RSS", "TTY", "STAT", "START", "TIME", "COMMAND");
 		strncpy(print_buf, ts, x);
@@ -477,6 +483,7 @@ void print_list() {
 		printf("%s", print_buf);
 	}
 
+	// 프로세스 정보들 출력
 	for (i = 0; i < Task_list.len; ++i) {
 		if(option_a && !option_x) {
 			if (strcmp(Task_list.list[i]->tty, "?")) {
@@ -599,18 +606,18 @@ void update_task_status() {
 
 	//printf("1111\n");
 
-	while ((dentry = readdir(dirp)) != NULL) {
+	while ((dentry = readdir(dirp)) != NULL) { // /proc 내의 모든 파일 확인
 		//printf("2222\n");
 		pid_t pid;
 		if (dentry->d_ino == 0)
 			continue;
 
 		memcpy(filename, dentry->d_name, MAXNAMLEN);
-		if ((pid = atoi(filename))) {
+		if ((pid = atoi(filename))) { // 파일 이름이 숫자라면
 			Task_info *new_info;
 
-			new_info = make_new_task_info(pid);
-			append_to_task_list(new_info);
+			new_info = make_new_task_info(pid); // 해당 파일 이름으로 새로운 Task_info 만든다
+			append_to_task_list(new_info); // Task_list에 새로운 원소 추가
 		} else {
 			continue;
 		}
@@ -663,7 +670,7 @@ void print_default_format(Task_info *t) {
 	return;
 }
 
-void get_devices() {
+void get_devices() { // /dev에 있는 디바이스 파일들 확인해서 저장한다
 	struct dirent *dentry;
 	struct stat statbuf;
 	char filename[MAXNAMLEN + 128];
@@ -696,7 +703,7 @@ void get_devices() {
 		if (S_ISDIR(statbuf.st_mode) || S_ISLNK(statbuf.st_mode))
 			continue;
 
-		if (S_ISCHR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
+		if (S_ISCHR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) { // 해당 파일의 major, minor number 저장한다
 			Device_info *new_info = (Device_info *)malloc(sizeof(Device_info));
 			strcpy(new_info->name, filename + 5);
 			new_info->major_nr = major(statbuf.st_rdev);
@@ -709,7 +716,7 @@ void get_devices() {
 	closedir(dirp);
 
 	// opendir /dev/pts
-	if ((dirp = opendir("/dev/pts")) == NULL) {
+	if ((dirp = opendir("/dev/pts")) == NULL) { // /dev/pts 디렉토리는 따로 확인한다
 		fprintf(stderr, "opendir error for /dev/pts\n");
 		endwin();
 		exit(1);
@@ -783,10 +790,10 @@ void init_device_list() {
 }
 
 void append_to_device_list(Device_info* new_info) {
-	if (Device_list.len == Device_list.size) {
-		Device_list.size *= 2;
-		Device_list.list = (Device_info **)realloc(Device_list.list, Device_list.size * sizeof(Device_info *));
-		if (Device_list.list == NULL) {
+	if (Device_list.len == Device_list.size) { // 배열 꽉찼으면 
+		Device_list.size *= 2; // 사이즈 두배로 늘림
+		Device_list.list = (Device_info **)realloc(Device_list.list, Device_list.size * sizeof(Device_info *)); // 재할당
+		if (Device_list.list == NULL) { // 재할당 실패시
 			fprintf(stderr, "realloc error in append_to_device_list\n");
 			endwin();
 			exit(1);
