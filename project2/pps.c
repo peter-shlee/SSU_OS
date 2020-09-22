@@ -22,6 +22,7 @@ const int MILLIS = 1000;
 typedef struct _Task_info {
 	char user[10]; // 8글자 이상이면 7번째 문자까지만 표시하고 뒤에 +
 	pid_t pid;
+	uid_t euid;
 	float cpu;
 	float mem;
 	unsigned long vsz;
@@ -30,6 +31,7 @@ typedef struct _Task_info {
 	char stat[10];
 	char start[10];
 	char time[10];
+	char default_time[10];
 	char command[128];
 
 //	int is_background_process;
@@ -52,6 +54,7 @@ void init_task_list();
 void free_task_list();
 char *convert_time_format(unsigned long time);
 char *convert_start_time(unsigned long long time);
+char *convert_default_time_format(unsigned long time);
 void update_task_status();
 unsigned long get_current_time();
 void print_u_format(Task_info *t);
@@ -72,8 +75,6 @@ struct _Device_list {
 	int size;
 } Device_list;
 
-char cur_usr_name[BUFFER_SIZE];
-
 void get_devices();
 void free_device_list();
 void init_device_list();
@@ -89,21 +90,38 @@ int option_u = 0;
 int option_x = 0;
 
 int page_size_in_KiB;
+char cur_usr_name[BUFFER_SIZE];
+uid_t euid;
+unsigned int cp_major;
+unsigned int cp_minor;
+char *tty;
+int x, y;
+char print_buf[1024];
+
 
 int main(int argc, char *argv[]) {
 	int opt;
 
-	//init_screen();
+	tty = ttyname(2);
+	if (!strncmp(tty, "/dev/", 5)) {
+		tty += 5;
+	}
+	//printf("%s\n", tty);
+
+	init_screen();
+	getmaxyx(stdscr, y, x);
+	endwin();
 
 	page_size_in_KiB = getpagesize() / 1024;
 	check_options(argc, argv);
-	print_selected_options();
+	//print_selected_options();
 
+	euid = geteuid();
 	get_cur_usr_name();
 	update_uptime();
 	init_device_list();
 	get_devices();
-	print_device_list();
+	//print_device_list();
 	init_task_list();
 	update_task_status();
 
@@ -111,7 +129,6 @@ int main(int argc, char *argv[]) {
 
 	free_device_list();
 	free_task_list();
-	//endwin();
 
 	return 0;
 }
@@ -232,9 +249,10 @@ Task_info *make_new_task_info(pid_t pid) {
 	unsigned long long starttime;
 	unsigned long user, nice, system, idle, lowait, irq, softirq, steal, guest, guest_nice;
 	unsigned long cur_cpu_nonidle, cur_cpu_idle, cur_cpu_time;
-	char *time_string;
+	char *time_string, *default_time_string;
 	dev_t tty_nr;
 	unsigned int major_nr, minor_nr;
+	char tmp_command[MAXNAMLEN + 1];
 
 	//printf("1111\n");
 	Task_info *new_info = (Task_info *)malloc(sizeof(Task_info));
@@ -284,8 +302,11 @@ Task_info *make_new_task_info(pid_t pid) {
 		fscanf(fp, "%s", tmp);
 	fscanf(fp, "%lu%lu", &utime, &stime); // time
 	time_string = convert_time_format(stime + utime);
+	default_time_string = convert_default_time_format(stime + utime);
 	strcpy(new_info->time, time_string);
+	strcpy(new_info->default_time, default_time_string);
 	free(time_string);
+	free(default_time_string);
 	for(i = 0; i < 3; ++i)
 		fscanf(fp, "%s", tmp);
 	fscanf(fp, "%ld", &ni); // ni
@@ -326,9 +347,15 @@ Task_info *make_new_task_info(pid_t pid) {
 		exit(1);
 	}
 	fscanf(fp, "%s%s", tmp, new_info->command); // COMMAND
-	for (i = 0; i < 17; ++i)
+	for (i = 0; i < 8; ++i)
+		fgets(tmp, BUFFER_SIZE, fp);
+	fscanf(fp, "%s%s%d%s%s", tmp, tmp, &(new_info->euid), tmp, tmp); // euid
+	for (i = 0; i < 10; ++i)
 		fgets(tmp, BUFFER_SIZE, fp);
 	fscanf(fp, "%s%ld", tmp, &VmLck); // VmLck
+	if (strcmp(tmp, "VmLck:")) {
+		VmLck = 0;
+	}
 
 	fclose(fp);
 
@@ -344,6 +371,19 @@ Task_info *make_new_task_info(pid_t pid) {
 	fclose(fp);
 	new_info->vsz *= page_size_in_KiB; // virt
 	new_info->rss *= page_size_in_KiB; // rss
+
+	// cmdline
+	sprintf(fname, "/proc/%d/cmdline", pid);
+	if ((fp = fopen(fname, mode)) == NULL) {
+		fprintf(stderr, "fopen error for %s\n", fname);
+		endwin();
+		exit(1);
+	}
+	fgets(tmp_command, 1024, fp); // mem
+	fclose(fp);
+	if (strcmp(tmp_command, "")) {
+		strcpy(new_info->command, tmp_command);
+	}
 
 	//printf("6666\n");
 	/////
@@ -366,7 +406,7 @@ Task_info *make_new_task_info(pid_t pid) {
 	}
 
 	if (VmLck > 0) {
-		strcat(new_info->stat, "L"); // ---------------> 잘못됨
+		strcat(new_info->stat, "L"); 
 	}
 
 	if (pid == session) {
@@ -457,15 +497,21 @@ void print_list() {
 	char ts[1024];
 
 	if (option_u) {
-		sprintf(ts, "\n%-8s%5s%5s%5s %7s %6s %-7s %-4s%6s%8s %s", "USER", "PID", "%CPU", "%MEM", "VSZ", "RSS", "TTY", "STAT", "START", "TIME", "COMMAND");
-		printf("%s", ts);
+		sprintf(ts, "%-8s%5s%5s%5s %7s %6s %-7s %-4s%6s%8s %s", "USER", "PID", "%CPU", "%MEM", "VSZ", "RSS", "TTY", "STAT", "START", "TIME", "COMMAND");
+		strncpy(print_buf, ts, x);
+		print_buf[x] = '\0';
+		printf("%s", print_buf);
 	} else if (option_a || option_x) {
-		sprintf(ts, "\n%5s %-7s %-4s%8s %s", "PID", "TTY", "STAT", "TIME", "COMMAND");
-		printf("%s", ts);
+		sprintf(ts, "%5s %-7s %-4s%8s %s", "PID", "TTY", "STAT", "TIME", "COMMAND");
+		strncpy(print_buf, ts, x);
+		print_buf[x] = '\0';
+		printf("%s", print_buf);
 
 	} else {
-		sprintf(ts, "\n%5s %-7s %8s %s", "PID", "TTY", "TIME", "COMMAND");
-		printf("%s", ts);
+		sprintf(ts, "%5s %-7s %8s %s", "PID", "TTY", "TIME", "CMD");
+		strncpy(print_buf, ts, x);
+		print_buf[x] = '\0';
+		printf("%s", print_buf);
 	}
 
 	for (i = 0; i < Task_list.len; ++i) {
@@ -493,9 +539,18 @@ void print_list() {
 			}
 		} else {
 			if (option_u) {
+				if (strcmp(Task_list.list[i]->tty, "?")) {
+					if (!strcmp(Task_list.list[i]->user, cur_usr_name)) {
+						print_u_format(Task_list.list[i]);
+					}
+				}
 
 			} else {
-				print_default_format(Task_list.list[i]);
+				if (Task_list.list[i]->euid == euid) {
+					if (!strcmp(tty, Task_list.list[i]->tty)) {
+						print_default_format(Task_list.list[i]);
+					}
+				}
 			}
 		}
 	}
@@ -533,6 +588,19 @@ char *convert_start_time(unsigned long long starttime){
 	strncpy(time_string, start_time_str + 11, 5);
 	time_string[5] = '\0';
 
+	return time_string;
+}
+
+char *convert_default_time_format(unsigned long time) {
+	char *time_string;
+	unsigned long tmp_seconds = time / sysconf(_SC_CLK_TCK);
+	unsigned long minutes = tmp_seconds / 60;
+	unsigned long hours = minutes / 60;
+	minutes -= hours * 60;
+	int seconds = (time - minutes * 60 * sysconf(_SC_CLK_TCK)) / sysconf(_SC_CLK_TCK);
+	time_string = (char *)malloc(16 * sizeof(char));
+
+	sprintf(time_string, "%02lu:%02lu:%02d", hours, minutes, seconds);
 	return time_string;
 }
 
@@ -605,7 +673,9 @@ unsigned long get_current_time() {
 void print_u_format(Task_info *t) {
 	char ts[1024];
 	sprintf(ts, "\n%-8s%5d%5.1f%5.1f %7lu %6lu %-7s %-4s%6s%8s %s", t->user, t->pid, t->cpu, t->mem, t->vsz, t->rss, t->tty, t->stat, t->start, t->time, t->command);
-	printf("%s", ts);
+	strncpy(print_buf, ts, x);
+	print_buf[x] = '\0';
+	printf("%s", print_buf);
 
 	return;
 }
@@ -613,15 +683,19 @@ void print_u_format(Task_info *t) {
 void print_a_x_format(Task_info *t) {
 	char ts[1024];
 	sprintf(ts, "\n%5d %-7s %-4s%8s %s", t->pid, t->tty, t->stat, t->time, t->command);
-	printf("%s", ts);
+	strncpy(print_buf, ts, x);
+	print_buf[x] = '\0';
+	printf("%s", print_buf);
 
 	return;
 }
 
 void print_default_format(Task_info *t) {
 	char ts[1024];
-	sprintf(ts, "\n%5d %-7s %8s %s", t->pid, t->tty, t->time, t->command);
-	printf("%s", ts);
+	sprintf(ts, "\n%5d %-7s %8s %s", t->pid, t->tty, t->default_time, t->command);
+	strncpy(print_buf, ts, x);
+	print_buf[x] = '\0';
+	printf("%s", print_buf);
 
 	return;
 }
@@ -639,7 +713,7 @@ void get_devices() {
 		exit(1);
 	}
 
-	printf("1111\n");
+	//printf("1111\n");
 
 	while ((dentry = readdir(dirp)) != NULL) {
 		if (dentry->d_ino == 0)
@@ -650,7 +724,7 @@ void get_devices() {
 
 
 		sprintf(filename, "/dev/%s", dentry->d_name);
-		printf("%s\n", filename);
+		//printf("%s\n", filename);
 		if (stat(filename, &statbuf) == -1) {
 			fprintf(stderr, "stat error for %s\n", filename);
 			break;
