@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+#include "processInfo.h"
 
 int
 sys_fork(void)
@@ -89,3 +90,90 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int
+do_hello(void)
+{
+	cprintf("helloxv6\n");
+
+	return 0;
+}
+
+int
+do_hello_name(void)
+{
+	char *name;
+	argstr(0, &name);
+	cprintf("hello %s\n", name);
+
+	return 0;
+}
+
+int
+do_get_num_proc(void)
+{
+	return get_num_proc();
+}
+
+int
+do_get_max_pid(void)
+{
+	return get_max_pid();
+}
+
+int
+do_get_proc_info(void)
+{
+	int pid;
+	struct processInfo *pInfo;
+
+	argint(0, &pid);
+	argptr(1, (void *)&pInfo, sizeof(pInfo));
+
+	return get_proc_info(pid, pInfo);
+}
+
+int
+do_set_prio()
+{
+	int n;
+	argint(0, &n);
+	return set_prio(n);
+}
+
+int
+do_get_prio()
+{
+	return get_prio();
+}
+
+//static unsigned int x;
+//static unsigned int y;
+//static unsigned int z;
+//static unsigned int w;
+//
+//int 
+//do_rand() {
+//	unsigned int t = x;
+//	unsigned int s = w;
+//	x = y;
+//	y = z;
+//	z = s;
+//
+//	t ^= t << 11;
+//	t ^= t >> 8;
+//	return w = t ^ s ^ (s >> 19);
+//}
+//
+//int 
+//do_srand() {
+//	int i = 0;
+//	unsigned int seed = argint(0);
+//	x = seed;
+//
+//	for (i = 0; i < 100; ++i) {
+//		my_rand();
+//	}
+//
+//	return 0;
+//}

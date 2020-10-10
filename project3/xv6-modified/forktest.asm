@@ -59,11 +59,11 @@ main(void)
 {
   56:	83 ec 10             	sub    $0x10,%esp
   write(fd, s, strlen(s));
-  59:	68 44 04 00 00       	push   $0x444
+  59:	68 7c 04 00 00       	push   $0x47c
   5e:	e8 6d 01 00 00       	call   1d0 <strlen>
   63:	83 c4 0c             	add    $0xc,%esp
   66:	50                   	push   %eax
-  67:	68 44 04 00 00       	push   $0x444
+  67:	68 7c 04 00 00       	push   $0x47c
   6c:	6a 01                	push   $0x1
   6e:	e8 4f 03 00 00       	call   3c2 <write>
   73:	83 c4 10             	add    $0x10,%esp
@@ -98,11 +98,11 @@ main(void)
   b6:	75 71                	jne    129 <forktest+0xd9>
   write(fd, s, strlen(s));
   b8:	83 ec 0c             	sub    $0xc,%esp
-  bb:	68 76 04 00 00       	push   $0x476
+  bb:	68 ae 04 00 00       	push   $0x4ae
   c0:	e8 0b 01 00 00       	call   1d0 <strlen>
   c5:	83 c4 0c             	add    $0xc,%esp
   c8:	50                   	push   %eax
-  c9:	68 76 04 00 00       	push   $0x476
+  c9:	68 ae 04 00 00       	push   $0x4ae
   ce:	6a 01                	push   $0x1
   d0:	e8 ed 02 00 00       	call   3c2 <write>
 }
@@ -112,11 +112,11 @@ main(void)
   da:	8d b6 00 00 00 00    	lea    0x0(%esi),%esi
   write(fd, s, strlen(s));
   e0:	83 ec 0c             	sub    $0xc,%esp
-  e3:	68 84 04 00 00       	push   $0x484
+  e3:	68 bc 04 00 00       	push   $0x4bc
   e8:	e8 e3 00 00 00       	call   1d0 <strlen>
   ed:	83 c4 0c             	add    $0xc,%esp
   f0:	50                   	push   %eax
-  f1:	68 84 04 00 00       	push   $0x484
+  f1:	68 bc 04 00 00       	push   $0x4bc
   f6:	6a 01                	push   $0x1
   f8:	e8 c5 02 00 00       	call   3c2 <write>
     exit();
@@ -125,22 +125,22 @@ main(void)
  102:	e8 9b 02 00 00       	call   3a2 <exit>
   write(fd, s, strlen(s));
  107:	83 ec 0c             	sub    $0xc,%esp
- 10a:	68 4f 04 00 00       	push   $0x44f
+ 10a:	68 87 04 00 00       	push   $0x487
  10f:	e8 bc 00 00 00       	call   1d0 <strlen>
  114:	83 c4 0c             	add    $0xc,%esp
  117:	50                   	push   %eax
- 118:	68 4f 04 00 00       	push   $0x44f
+ 118:	68 87 04 00 00       	push   $0x487
  11d:	6a 01                	push   $0x1
  11f:	e8 9e 02 00 00       	call   3c2 <write>
       exit();
  124:	e8 79 02 00 00       	call   3a2 <exit>
   write(fd, s, strlen(s));
  129:	83 ec 0c             	sub    $0xc,%esp
- 12c:	68 63 04 00 00       	push   $0x463
+ 12c:	68 9b 04 00 00       	push   $0x49b
  131:	e8 9a 00 00 00       	call   1d0 <strlen>
  136:	83 c4 0c             	add    $0xc,%esp
  139:	50                   	push   %eax
- 13a:	68 63 04 00 00       	push   $0x463
+ 13a:	68 9b 04 00 00       	push   $0x49b
  13f:	6a 01                	push   $0x1
  141:	e8 7c 02 00 00       	call   3c2 <write>
     exit();
@@ -150,8 +150,8 @@ main(void)
  14f:	90                   	nop
 
 00000150 <strcpy>:
-#include "user.h"
 #include "x86.h"
+//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)
@@ -666,3 +666,45 @@ SYSCALL(uptime)
  43a:	b8 0e 00 00 00       	mov    $0xe,%eax
  43f:	cd 40                	int    $0x40
  441:	c3                   	ret    
+
+00000442 <hello>:
+SYSCALL(hello)
+ 442:	b8 16 00 00 00       	mov    $0x16,%eax
+ 447:	cd 40                	int    $0x40
+ 449:	c3                   	ret    
+
+0000044a <hello_name>:
+SYSCALL(hello_name)
+ 44a:	b8 17 00 00 00       	mov    $0x17,%eax
+ 44f:	cd 40                	int    $0x40
+ 451:	c3                   	ret    
+
+00000452 <get_num_proc>:
+SYSCALL(get_num_proc)
+ 452:	b8 18 00 00 00       	mov    $0x18,%eax
+ 457:	cd 40                	int    $0x40
+ 459:	c3                   	ret    
+
+0000045a <get_max_pid>:
+SYSCALL(get_max_pid)
+ 45a:	b8 19 00 00 00       	mov    $0x19,%eax
+ 45f:	cd 40                	int    $0x40
+ 461:	c3                   	ret    
+
+00000462 <get_proc_info>:
+SYSCALL(get_proc_info)
+ 462:	b8 1a 00 00 00       	mov    $0x1a,%eax
+ 467:	cd 40                	int    $0x40
+ 469:	c3                   	ret    
+
+0000046a <set_prio>:
+SYSCALL(set_prio)
+ 46a:	b8 1b 00 00 00       	mov    $0x1b,%eax
+ 46f:	cd 40                	int    $0x40
+ 471:	c3                   	ret    
+
+00000472 <get_prio>:
+SYSCALL(get_prio)
+ 472:	b8 1c 00 00 00       	mov    $0x1c,%eax
+ 477:	cd 40                	int    $0x40
+ 479:	c3                   	ret    

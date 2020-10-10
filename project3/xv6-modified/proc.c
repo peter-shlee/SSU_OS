@@ -6,6 +6,8 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "processInfo.h"
+#include "rand.h"
 
 struct {
   struct spinlock lock;
@@ -18,7 +20,11 @@ int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
 
+
 static void wakeup1(void *chan);
+
+unsigned int get_ticket_total(void);
+void update_ticket(struct proc *p);
 
 void
 pinit(void)
@@ -111,6 +117,10 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+
+  p->context_switch_count = 0; // get_proc_info를 위해 추가
+  p->prio = 500; // prio에 올 수 있는 값의 중간값인 500으로 초기화
+  update_ticket(p);
 
   return p;
 }
@@ -322,37 +332,61 @@ wait(void)
 void
 scheduler(void)
 {
-  struct proc *p;
-  struct cpu *c = mycpu();
-  c->proc = 0;
+	//static int first_sched = 1; // 첫 실행 시 srand() 호출을 위한 static 변수
+	struct proc *p;
+	struct cpu *c = mycpu();
+	unsigned int random_number;
+	unsigned int ticket_total;
+	unsigned int ticket_count;
+	c->proc = 0;
   
-  for(;;){
-    // Enable interrupts on this processor.
-    sti();
+//	if(first_sched) { // 첫 실행 시 랜덤 값 생성을 위해 srand() 호출 
+//		first_sched = 0;
+//	}
+	srand(20160548);
 
-    // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+	// lottery 스케쥴링
+	for(;;){
+		// Enable interrupts on this processor.
+		sti();
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+		// Loop over process table looking for process to run.
+		acquire(&ptable.lock);
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+		// ticket의 총 개수 구하기
+		ticket_total = get_ticket_total();
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
-    release(&ptable.lock);
+		// random 숫자 생성
+		random_number = rand() % ticket_total + 1;
 
-  }
+		// ticket_count 초기화
+		ticket_count = 0;
+
+		// 해당 티켓을 갖고있는는 프로세스를 실행
+		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+			if(p->state == RUNNABLE) {
+				ticket_count += p->ticket;
+				if (random_number <= ticket_count) {
+					//cprintf("random_number: %d, prio_total: %d, ticket_count: %d, prio: %d\n", random_number, prio_total, ticket_count, p->prio);
+					p->context_switch_count += 1;
+					c->proc = p;
+					switchuvm(p);
+					p->state = RUNNING;
+
+					swtch(&(c->scheduler), p->context);
+					switchkvm();
+
+					// Process is done running for now.
+					// It should have changed its p->state before coming back.
+					c->proc = 0;
+
+					break;
+				}
+			}
+		}
+
+		release(&ptable.lock);
+	}
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -376,6 +410,7 @@ sched(void)
     panic("sched running");
   if(readeflags()&FL_IF)
     panic("sched interruptible");
+  p->context_switch_count += 1;
   intena = mycpu()->intena;
   swtch(&p->context, mycpu()->scheduler);
   mycpu()->intena = intena;
@@ -531,4 +566,116 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+get_num_proc(void)
+{
+	struct proc *p;
+	int count = 0;
+	acquire(&ptable.lock);
+
+	for (p = ptable.proc; p < &ptable.proc[NPROC]; ++p) {
+		if (p->state != UNUSED)
+			++count;
+	}
+
+	release(&ptable.lock);
+	return count;
+}
+
+int
+get_max_pid(void) {
+	struct proc *p;
+	int max_pid = 0;
+	acquire(&ptable.lock);
+
+	for (p = ptable.proc; p < &ptable.proc[NPROC]; ++p) {
+		if (p->state != UNUSED && p->pid > max_pid)
+			max_pid = p->pid;
+	}
+
+	release(&ptable.lock);
+	return max_pid;
+}
+
+int
+get_proc_info(int pid, struct processInfo *pInfo)
+{
+	struct proc *p;
+	int process_found_flag = 0;
+	acquire(&ptable.lock);
+
+	for (p = ptable.proc; p < &ptable.proc[NPROC]; ++p) {
+		if (p->state != UNUSED && p->pid == pid) {
+			if (p->parent == 0) {
+				pInfo->ppid = 0;
+			} else {
+				pInfo->ppid = p->parent->pid;
+			}
+			pInfo->psize = p->sz;
+			pInfo->numberContextSwitches = p->context_switch_count;
+
+			process_found_flag = 1;
+			break;
+		}
+	}
+
+	release(&ptable.lock);
+
+	if (process_found_flag)
+		return 0;
+	else
+		return -1;
+
+}
+
+int
+set_prio(int n)
+{
+	if (0 < n && n <= 1000) {
+		struct proc *p = myproc();
+		acquire(&ptable.lock);
+		p->prio = n;
+		update_ticket(p);
+		release(&ptable.lock);
+
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+int
+get_prio()
+{
+	int n = 0;
+
+	acquire(&ptable.lock);
+	n = myproc()->prio;
+	release(&ptable.lock);
+
+	if (n > 0) {
+		return n;
+	} else {
+		return -1;
+	}
+}
+
+void update_ticket(struct proc *p) 
+{
+	p->ticket = p->prio + (p->prio / 10) * (p->prio / 10);
+}
+
+unsigned int
+get_ticket_total() { // lock한 뒤에 호출해야 함
+    struct proc *p;
+    unsigned int ticket_total = 1;
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state == RUNNABLE)
+	ticket_total += p->ticket;
+    }
+    
+    return ticket_total;
 }
