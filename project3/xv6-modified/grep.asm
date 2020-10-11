@@ -451,8 +451,8 @@ int matchstar(int c, char *re, char *text)
  32e:	66 90                	xchg   %ax,%ax
 
 00000330 <strcpy>:
+#include "user.h"
 #include "x86.h"
-//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)

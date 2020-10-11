@@ -146,34 +146,3 @@ do_get_prio()
 {
 	return get_prio();
 }
-
-//static unsigned int x;
-//static unsigned int y;
-//static unsigned int z;
-//static unsigned int w;
-//
-//int 
-//do_rand() {
-//	unsigned int t = x;
-//	unsigned int s = w;
-//	x = y;
-//	y = z;
-//	z = s;
-//
-//	t ^= t << 11;
-//	t ^= t >> 8;
-//	return w = t ^ s ^ (s >> 19);
-//}
-//
-//int 
-//do_srand() {
-//	int i = 0;
-//	unsigned int seed = argint(0);
-//	x = seed;
-//
-//	for (i = 0; i < 100; ++i) {
-//		my_rand();
-//	}
-//
-//	return 0;
-//}

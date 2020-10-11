@@ -50,8 +50,9 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int context_switch_count;    // Number of context switches
-  unsigned int prio;
-  unsigned int ticket;
+  unsigned int prio;           // 스케쥴링 우선순위
+  unsigned int ticket;         // 로터리 스케쥴링에 사용할 티켓 수
+  int count;                   // 우선순위 기반 RR 스케쥴링에 사용할 count
 };
 
 // Process memory is laid out contiguously, low addresses first:

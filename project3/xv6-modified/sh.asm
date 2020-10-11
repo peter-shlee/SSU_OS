@@ -1440,8 +1440,8 @@ nulterminate(struct cmd *cmd)
      abf:	90                   	nop
 
 00000ac0 <strcpy>:
+#include "user.h"
 #include "x86.h"
-//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)

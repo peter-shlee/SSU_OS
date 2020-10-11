@@ -198,8 +198,8 @@ main(int argc, char *argv[])
  17f:	90                   	nop
 
 00000180 <strcpy>:
+#include "user.h"
 #include "x86.h"
-//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)

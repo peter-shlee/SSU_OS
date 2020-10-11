@@ -31,8 +31,6 @@ int get_max_pid(void);
 int get_proc_info(int, struct processInfo *);
 int set_prio(int);
 int get_prio(void);
-//int rand(void);
-//int srand(unsigned int);
 
 // ulib.c
 int stat(const char*, struct stat*);

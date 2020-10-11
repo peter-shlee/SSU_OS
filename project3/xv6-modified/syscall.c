@@ -110,8 +110,6 @@ extern int do_get_max_pid(void);
 extern int do_get_proc_info(void);
 extern int do_set_prio(void);
 extern int do_get_prio(void);
-//extern int do_rand(void);
-//extern int do_srand(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -142,8 +140,6 @@ static int (*syscalls[])(void) = {
 [SYS_get_proc_info] do_get_proc_info,
 [SYS_set_prio] do_set_prio,
 [SYS_get_prio] do_get_prio,
-//[SYS_rand] do_rand,
-//[SYS_srand] do_srand,
 };
 
 void

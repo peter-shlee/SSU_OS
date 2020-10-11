@@ -338,8 +338,8 @@ main(int argc, char *argv[])
  32b:	e9 30 ff ff ff       	jmp    260 <ls+0x160>
 
 00000330 <strcpy>:
+#include "user.h"
 #include "x86.h"
-//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)

@@ -5521,8 +5521,8 @@ main(int argc, char *argv[])
     362e:	66 90                	xchg   %ax,%ax
 
 00003630 <strcpy>:
+#include "user.h"
 #include "x86.h"
-//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)

@@ -146,8 +146,8 @@ main(int argc, char *argv[])
  10e:	66 90                	xchg   %ax,%ax
 
 00000110 <strcpy>:
+#include "user.h"
 #include "x86.h"
-//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)

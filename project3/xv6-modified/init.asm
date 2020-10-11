@@ -120,8 +120,8 @@ main(void)
   ef:	90                   	nop
 
 000000f0 <strcpy>:
+#include "user.h"
 #include "x86.h"
-//#include "rand.c"
 
 char*
 strcpy(char *s, const char *t)
