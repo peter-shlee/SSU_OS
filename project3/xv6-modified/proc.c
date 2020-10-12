@@ -118,9 +118,6 @@ found:
   p->context_switch_count = 0; // get_proc_info를 위해 추가
   p->prio = 500; // prio에 올 수 있는 값의 중간값인 500으로 초기화
   p->count = MAX_COUNT;
-#ifdef LOTTERY
-  update_ticket(p);
-#endif
 
   return p;
 }
