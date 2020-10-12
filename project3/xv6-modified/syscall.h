@@ -27,5 +27,3 @@
 #define SYS_get_proc_info 26
 #define SYS_set_prio 27
 #define SYS_get_prio 28
-#define SYS_rand 28
-#define SYS_srand 28

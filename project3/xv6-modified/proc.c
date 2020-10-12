@@ -7,14 +7,8 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "processInfo.h"
-#include "rand.h"
 
 #define MAX_COUNT 2000
-#define MAX_PRIO 1000
-#define MIN_PRIO 1
-//#define LOTTERY - 주석 제거 시 로터리 스케쥴링, 제거 안하면 우선순위 기반 RR 스케쥴링
-
-int sys_uptime(void);
 
 struct {
   struct spinlock lock;
@@ -28,9 +22,6 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
-
-unsigned int get_ticket_total(void);
-void update_ticket(struct proc *p);
 
 void
 pinit(void)
@@ -343,69 +334,12 @@ scheduler(void)
 {
 	struct proc *p;
 	struct cpu *c = mycpu();
-#ifndef LOTTERY
 	int max_prio = 0;
 	int prio_total = 0;
 	int runnable_count = 0;
-#endif
-
-#ifdef LOTTERY
-	unsigned int random_number;
-	unsigned int ticket_total;
-	unsigned int ticket_count;
-
-	srand(20160548);
-#endif
 
 	c->proc = 0;
-
-
-#ifdef LOTTERY
-	// lottery 스케쥴링
-	for(;;){
-		// Enable interrupts on this processor.
-		sti();
-
-		// Loop over process table looking for process to run.
-		acquire(&ptable.lock);
-
-		// ticket의 총 개수 구하기
-		ticket_total = get_ticket_total();
-
-		// random 숫자 생성
-		random_number = rand() % ticket_total + 1;
-
-		// ticket_count 초기화
-		ticket_count = 0;
-
-		// 해당 티켓을 갖고있는는 프로세스를 실행
-		for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-			if(p->state == RUNNABLE) {
-				ticket_count += p->ticket;
-				if (random_number <= ticket_count) {
-					//cprintf("random_number: %d, prio_total: %d, ticket_count: %d, prio: %d\n", random_number, prio_total, ticket_count, p->prio);
-					p->context_switch_count += 1;
-					c->proc = p;
-					switchuvm(p);
-					p->state = RUNNING;
-
-					swtch(&(c->scheduler), p->context);
-					switchkvm();
-
-					// Process is done running for now.
-					// It should have changed its p->state before coming back.
-					c->proc = 0;
-
-					break;
-				}
-			}
-		}
-
-		release(&ptable.lock);
-	}
-#endif
   
-#ifndef LOTTERY
 	// 우선순위 RR 스케쥴링
 	for(;;){
 		// Enable interrupts on this processor.
@@ -463,7 +397,6 @@ scheduler(void)
 
 		release(&ptable.lock);
 	}
-#endif
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -710,14 +643,11 @@ get_proc_info(int pid, struct processInfo *pInfo)
 int
 set_prio(int n)
 { 
-	// 우선순위는 MIN_PRIO(1)부터 MAX_PRIO(1000)까지의 정수만 가능하다. 이 범위를 벗어나면 우선순위를 변경하지 않고 -1을 리턴한다
-	if (MIN_PRIO <= n && n <= MAX_PRIO) {
+	// 우선순위는 양의 정수만 가능하다. 이 범위를 벗어나면 우선순위를 변경하지 않고 -1을 리턴한다
+	if (0 < n) {
 		struct proc *p = myproc();
 		acquire(&ptable.lock);
 		p->prio = n;
-#ifdef LOTTERY
-		update_ticket(p);
-#endif
 		release(&ptable.lock);
 
 		return 0;
@@ -735,28 +665,10 @@ get_prio()
 	n = myproc()->prio;
 	release(&ptable.lock);
 
-	// 우선순위는 MIN_PRIO(1)부터 MAX_PRIO(1000)까지의 정수만 가능하다. 이 범위를 벗어나면 -1을 리턴한다
-	if (MIN_PRIO <= n && n <= MAX_PRIO) {
+	// 우선순위는 양의 정수만 가능하다. 이 범위를 벗어나면 -1을 리턴한다
+	if (0 < n) {
 		return n;
 	} else {
 		return -1;
 	}
-}
-
-void update_ticket(struct proc *p) // 로터리 스케쥴링에 사용할 티켓 개수를 정한다
-{
-	p->ticket = p->prio + (p->prio / 10) * (p->prio / 10);
-}
-
-// 로터리 스케쥴링에 사용할 티켓의 총 개수를 구한다
-unsigned int get_ticket_total() { // lock한 뒤에 호출해야 함
-    struct proc *p;
-    unsigned int ticket_total = 1;
-
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state == RUNNABLE)
-	ticket_total += p->ticket;
-    }
-    
-    return ticket_total;
 }
