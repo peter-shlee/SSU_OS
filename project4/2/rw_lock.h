@@ -5,7 +5,11 @@
 
 struct rw_lock
 {
-
+	pthread_rwlock_t rwlock;
+	pthread_spinlock_t lock;
+	int num_of_readers;
+	int num_of_writers;
+	int num_of_write_requests;
 };
 
 void init_rwlock(struct rw_lock * rw);
