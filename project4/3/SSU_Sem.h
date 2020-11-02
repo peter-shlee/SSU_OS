@@ -1,8 +1,8 @@
 #include <pthread.h>
 
 typedef struct SSU_Sem {
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
+	pthread_mutex_t lock; // count 변수 접근 시에 사용할 mutex
+	pthread_cond_t cond; // count 변수 접근 시에 사용할 조건변수
 	int count;
 } SSU_Sem;
 

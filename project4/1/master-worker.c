@@ -8,8 +8,8 @@
 #include <pthread.h>
 #include <unistd.h>
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; // mutex 선언, 초기화
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER; // 조건변수 선언, 초기화
 
 int item_to_produce, item_to_consume, curr_buf_size;
 int total_items, max_buf_size, num_workers, num_masters;
@@ -36,23 +36,23 @@ void *generate_requests_loop(void *data)
 
 	while(1)
 	{
-		pthread_mutex_lock(&lock);
+		pthread_mutex_lock(&lock); // mutex lock
 
-		if(item_to_produce >= total_items) {
-			pthread_cond_signal(&cond);
-			pthread_mutex_unlock(&lock);
+		if(item_to_produce >= total_items) { // 아이템 모두 만들었으면
+			pthread_cond_signal(&cond); // send signal
+			pthread_mutex_unlock(&lock); // mutex unlock
 			break;
 		}
 
-		if (curr_buf_size < max_buf_size) {
-			buffer[curr_buf_size++] = item_to_produce;
+		if (curr_buf_size < max_buf_size) { // 버퍼에 빈 공간이 있을 때
+			buffer[curr_buf_size++] = item_to_produce; // 새로운 아이템을 버퍼에 넣음
 			print_produced(item_to_produce, thread_id);
 			item_to_produce++;
 		}
 
-		pthread_cond_signal(&cond);
-		pthread_cond_wait(&cond, &lock);
-		pthread_mutex_unlock(&lock);
+		pthread_cond_signal(&cond); // send signal
+		pthread_cond_wait(&cond, &lock); // wait
+		pthread_mutex_unlock(&lock); // mutex unlock
 	}
 	return 0;
 }
@@ -63,22 +63,22 @@ void *consume_requests_loop(void *data)
 
 	while(1)
 	{
-		pthread_mutex_lock(&lock);
+		pthread_mutex_lock(&lock); // mutex lock
 
-		if(item_to_consume >= total_items) {
-			pthread_cond_signal(&cond);
-			pthread_mutex_unlock(&lock);
+		if(item_to_consume >= total_items) { // 모든 아이템을 소비했으면
+			pthread_cond_signal(&cond); // send signal
+			pthread_mutex_unlock(&lock); // mutex unlock
 			break;
 		}
 
-		if (0 < curr_buf_size) {
-			print_consumed(buffer[--curr_buf_size], thread_id);
+		if (0 < curr_buf_size) { // 버퍼가 비어있지 않다면
+			print_consumed(buffer[--curr_buf_size], thread_id); // 아이템 하나 소비
 			++item_to_consume;
 		}
 
-		pthread_cond_signal(&cond);
-		pthread_cond_wait(&cond, &lock);
-		pthread_mutex_unlock(&lock);
+		pthread_cond_signal(&cond); // send signal
+		pthread_cond_wait(&cond, &lock); // wait
+		pthread_mutex_unlock(&lock); // mutex unlock
 	}
 	return 0;
 }
