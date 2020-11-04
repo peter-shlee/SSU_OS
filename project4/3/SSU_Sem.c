@@ -17,11 +17,8 @@ void SSU_Sem_init(SSU_Sem *s, int value) {
 
 void SSU_Sem_down(SSU_Sem *s) {
 	pthread_mutex_lock(&(s->lock)); // lock
-	while (s->count < 0) { // count가 음수라면
-		pthread_cond_wait(&(s->cond), &(s->lock)); // wait
-	}
  	--(s->count); // count 1 감소시킴
-	if (s->count < 0) { // 감소시킨 후의 count가 음수라면
+	if (s->count < 0) { // count가 음수라면
 		pthread_cond_wait(&(s->cond), &(s->lock)); // wait
 	}
 	pthread_mutex_unlock(&(s->lock)); // unlock
@@ -29,7 +26,14 @@ void SSU_Sem_down(SSU_Sem *s) {
 
 void SSU_Sem_up(SSU_Sem *s) {
 	pthread_mutex_lock(&(s->lock)); // lock
- 	++s->count; // count 1 증가시킴
-	pthread_mutex_unlock(&(s->lock)); // unlock
-	pthread_cond_signal(&(s->cond)); // send signal
+ 	++(s->count); // count 1 증가시킴
+	
+	if (s-> count <= 0) { // 대기중인 쓰레드가 있다면
+		pthread_mutex_unlock(&(s->lock)); // unlock
+		pthread_cond_signal(&(s->cond)); // send signal
+	} else {
+		pthread_mutex_unlock(&(s->lock)); // unlock
+	}
+
+	return;
 }
