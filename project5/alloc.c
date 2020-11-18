@@ -119,7 +119,9 @@ char *alloc(int size) {
 
 
 			// in_use_list의 앞부분에 집어넣음
-			mem_linked_list.mem_in_use_head->prev_node = mem_not_in_use;
+			if (mem_linked_list.mem_in_use_head) {
+				mem_linked_list.mem_in_use_head->prev_node = mem_not_in_use;
+			}
 			mem_linked_list.mem_in_use_head = mem_not_in_use;
 
 			new_alloced_mem = mem_not_in_use;
@@ -195,7 +197,7 @@ void dealloc(char *dealloc_ptr) {
 				if (node->next_node) {
 					if (node->start_index + node->size == node->next_node->start_index) {
 						tmp_node = node->next_node;
-						node->size += node->size;
+						node->size += node->next_node->size;
 						node->next_node = node->next_node->next_node;
 						if (node->next_node) {
 							node->next_node->prev_node = node;
