@@ -6,12 +6,21 @@
 #include <unistd.h>
 #include "alloc.h"
 
+
+void printvsz(char *hint) {
+  char buffer[256];
+  sprintf(buffer, "echo -n %s && echo -n VSZ: && cat /proc/%d/stat | cut -d\" \" -f23", hint, getpid());
+  system(buffer);
+  //getchar();
+}
+
 int main()
 {
 	//mmap to get page
 	if(init_alloc())
 		return 1;	//mmap failed
 
+	printvsz("start: ");
 	char *str = alloc(512);
 	char *str2 = alloc(512);
 
@@ -27,11 +36,15 @@ int main()
 	
 	else
 	  printf("Hello, world! test passed\n");
+
+	printvsz("should increase: ");
 	
 	dealloc(str);
 	dealloc(str2);
 
 	printf("Elementary tests passed\n");
+	printvsz("should not change: ");
+	printf("\n");
 	
 	printf("Starting comprehensive tests (see details in code)\n");
 
@@ -76,6 +89,9 @@ int main()
 	else
 	  printf("Test 1 failed: A: %d, B: %d, C: %d, D: %d\n", strcmp(stringA, strA), strcmp(stringB, strB), strcmp(stringC, strC), strcmp(stringD, strD));
 
+	printvsz("should not change: ");
+	printf("\n");
+
 	/**** test 2 ****/
 	
 	dealloc(strC);
@@ -91,6 +107,9 @@ int main()
 	  printf("Test 2 passed: dealloc and realloc worked\n");
 	else
 	  printf("Test 2 failed: X: %d\n", strcmp(stringX, strX));
+
+	printvsz("should not change: ");
+	printf("\n");
 
 	/*** test 3 ***/
 	
@@ -119,6 +138,8 @@ int main()
 	else
 	  printf("Test 3 failed: Y: %d, Z: %d\n", strcmp(stringY, strY), strcmp(stringZ, strZ));
 
+	printvsz("should not change: ");
+	printf("\n");
 
 	// merge checks
 	//test 4: free 2x512, allocate 1024
@@ -137,6 +158,9 @@ int main()
 	else
 	  printf("Test 4 failed: X: %d\n", strcmp(stringX, strX));
 
+	printvsz("should not change: ");
+	printf("\n");
+
 	//test 5: free 2x1024, allocate 2048
 	
 	dealloc(strX);
@@ -151,6 +175,10 @@ int main()
 		printf("Test 5 passed: merge alloc 2048 worked\n");
 	else
 		printf("Test5 failed\n");
+
+	printvsz("should not change: ");
+	printf("\n");
+
 	///////////////////////////
 
 //	system("ps u");
